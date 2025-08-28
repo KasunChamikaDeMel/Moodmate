@@ -1,0 +1,19 @@
+# File: backend/requirements.txt
+
+# Flask and Server
+Flask
+Flask-Cors
+
+# Core & ML
+numpy
+Pillow
+tensorflow==2.16.1
+opencv-python
+
+# Audio Processing
+librosa
+sounddevice
+noisereduce
+
+# Text Processing
+textblob

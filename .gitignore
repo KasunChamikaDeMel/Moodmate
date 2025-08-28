@@ -1,0 +1,6 @@
+# Ignore data folders
+/dataset/
+/voice dataset/
+venv/
+__pycache__/
+.env

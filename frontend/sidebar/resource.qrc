@@ -1,0 +1,26 @@
+<RCC>
+  <qresource>
+    <file>icon/menu-4-48w.ico</file>
+    <file>icon/menu-4-48.ico</file>
+    <file>icon/book-2-48 (1).ico</file>
+    <file>icon/book-2-48.ico</file>
+    <file>icon/change-user-48 (1).ico</file>
+    <file>icon/change-user-48.ico</file>
+    <file>icon/group-48 (1).ico</file>
+    <file>icon/group-48.ico</file>
+    <file>icon/help-48 (1).ico</file>
+    <file>icon/help-48.ico</file>
+    <file>icon/house-48 (3).ico</file>
+    <file>icon/house-48.ico</file>
+    <file>icon/logout-48 (1).ico</file>
+    <file>icon/logout-48.ico</file>
+    <file>icon/rabbit-48 (1).ico</file>
+    <file>icon/rabbit-48.ico</file>
+    <file>icon/search-12-48 (1).ico</file>
+    <file>icon/search-12-48.ico</file>
+    <file>icon/settings-4-48 (1).ico</file>
+    <file>icon/settings-4-48.ico</file>
+    <file>icon/slr-camera-48 (1).ico</file>
+    <file>icon/slr-camera-48.ico</file>
+  </qresource>
+</RCC>
