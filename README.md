@@ -74,17 +74,49 @@ The application will start, open your webcam, and begin analyzing your facial ex
 
 ## 📂 Project Structure
 ```
-MoodMate_Project/
+MoodMate/
 │
-├── models/                # Trained model files (.h5, .pkl)
-├── notebooks/             # Jupyter notebooks for model training
-├── src/                   # Main source code
-│   ├── gui.py             # Pyglet frontend code
-│   ├── emotion_processor.py # Model loading and prediction logic
-│   └── main.py            # Entry point to run the app
+├── .gitignore                  # Specifies files for Git to ignore
 │
-├── README.md              # This file
-└── requirements.txt       # Python dependencies
+├── backend/
+│   │
+│   ├── api/
+│   │   ├── __init__.py
+│   │   └── routes.py           # Defines all API endpoints
+│   │
+│   ├── core/
+│   │   ├── __init__.py
+│   │   └── inference.py        # Handles the ML model prediction logic
+│   │
+│   ├── models/
+│   │   ├── face_emotion_model.h5
+│   │   └── voice_emotion_model.onnx
+│   │
+│   ├── .env                    # Environment variables
+│   ├── config.py               # Application configuration settings
+│   ├── run.py                  # Script to start the Flask server
+│   └── requirements.txt        # Backend Python dependencies
+│
+├── frontend/
+│   │
+│   ├── icons/                  # Folder for your icon files
+│   │
+│   ├── detection.py
+│   ├── help.py
+│   ├── history.py
+│   ├── home.py
+│   ├── main.py                 # Main script to launch the GUI
+│   ├── main.ui                 # Qt Designer UI file
+│   ├── pet.py
+│   ├── profile_1.py
+│   ├── resource.qrc            # Qt resource file
+│   ├── resource_rc.py          # Auto-generated from .qrc file
+│   ├── settings.py
+│   ├── sidebar.py
+│   ├── ui_sidebar.py           # Auto-generated from a .ui file
+│   └── requirements.txt        # Frontend Python dependencies
+│
+└── README.md                   # Project description and setup instructions
 
 ```
 
