@@ -3,9 +3,6 @@ from flask_cors import CORS
 from .routes import main_bp
 
 def create_app(config_class):
-    """
-    Application factory function.
-    """
     app = Flask(__name__)
     app.config.from_object(config_class)
 

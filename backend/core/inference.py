@@ -7,11 +7,8 @@ import librosa
 import noisereduce as nr
 from tensorflow.keras.models import load_model
 from tensorflow.keras.layers import LSTM
-
-# A simple library for basic sentiment analysis (for demonstration)
 from textblob import TextBlob
 
-# --- (CustomLSTM class and global variables remain the same) ---
 class CustomLSTM(LSTM):
     def __init__(self, *args, **kwargs):
         kwargs.pop("time_major", None)
@@ -22,7 +19,6 @@ face_cascade = None
 FACE_EMOTION_LABELS = ['angry', 'neutral', 'sleep', 'stress']
 VOICE_EMOTION_LABELS = ['sleepy', 'angry', 'stress']
 
-# --- (load_models and predict_emotion_from_image/audio remain the same) ---
 def load_models(face_model_path, voice_model_path, cascade_path):
     global face_emotion_model, voice_emotion_model, face_cascade
     try:

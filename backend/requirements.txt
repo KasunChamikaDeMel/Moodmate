@@ -1,19 +1,7 @@
-# File: backend/requirements.txt
-
-# Flask and Server
-Flask
-Flask-Cors
-
-# Core & ML
+flask
+flask-cors
+tensorflow
 numpy
 Pillow
-tensorflow==2.16.1
-opencv-python
-
-# Audio Processing
-librosa
-sounddevice
-noisereduce
-
-# Text Processing
-textblob
+flask-socketio
+eventlet  # A high-performance server needed for Socket.IO
