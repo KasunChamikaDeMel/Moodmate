@@ -1,3 +1,7 @@
+"""
+MoodMate Main Application with Backend Integration
+"""
+
 from datetime import datetime, timedelta
 import sys
 import random
@@ -11,6 +15,7 @@ from history import HistoryPage
 from settings import SettingsPage
 from profile_1 import ProfilePage
 from help import HelpPage
+from api_client import APIClient
 
 
 class MoodMateApp(QMainWindow, Ui_MainWindow):
@@ -25,8 +30,14 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
         self.pet_mood = "happy"
         self.username = "User"
         self.pet_name = "Buddy"
-        self.mood_history = []
-        self.generate_sample_history()
+        self.user_id = 1
+        
+        # Check backend connection
+        self.check_backend_connection()
+        
+        # Load initial data from backend
+        self.load_user_data()
+        self.load_pet_data()
         
         # Create page instances
         self.home_page = HomePage(self)
@@ -56,6 +67,38 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
         # Setup timers
         self.setup_timers()
     
+    def check_backend_connection(self):
+        """Check if backend is running"""
+        if not APIClient.test_connection():
+            QMessageBox.warning(
+                self,
+                "Backend Connection",
+                "⚠️ Cannot connect to backend server!\n\n"
+                "Please ensure the backend is running:\n"
+                "1. Open terminal in backend folder\n"
+                "2. Run: python run.py\n\n"
+                "The app will work with limited functionality."
+            )
+    
+    def load_user_data(self):
+        """Load user data from backend"""
+        try:
+            result = APIClient.get_user(self.user_id)
+            if 'error' not in result:
+                self.username = result.get('username', 'User')
+        except Exception as e:
+            print(f"Failed to load user data: {e}")
+    
+    def load_pet_data(self):
+        """Load pet data from backend"""
+        try:
+            result = APIClient.get_pet_data(self.user_id)
+            if 'error' not in result:
+                self.pet_name = result.get('pet_name', 'Buddy')
+                self.pet_mood = result.get('pet_mood', 'happy')
+        except Exception as e:
+            print(f"Failed to load pet data: {e}")
+    
     def connect_navigation(self):
         """Connect all navigation buttons to their respective pages"""
         nav_map = {
@@ -76,61 +119,62 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
         }
         
         for button, page in nav_map.items():
-            button.clicked.connect(lambda _, p=page: self.stackedWidget.setCurrentWidget(p))
+            button.clicked.connect(lambda _, p=page: self.switch_page(p))
         
         # Set default page
         self.stackedWidget.setCurrentWidget(self.home_page)
         self.home_1.setChecked(True)
     
+    def switch_page(self, page):
+        """Switch to a page and refresh its data"""
+        self.stackedWidget.setCurrentWidget(page)
+        
+        # Refresh data when switching to certain pages
+        if page == self.history_page:
+            self.history_page.refresh_history()
+        elif page == self.pet_page:
+            self.pet_page.refresh_data()
+        elif page == self.profile_page:
+            self.profile_page.load_user_data()
+    
     def update_all_pages(self):
         """Update all pages with current data"""
         self.home_page.update_content(self.username, self.current_mood, self.pet_name)
         self.pet_page.update_content(self.pet_name, self.pet_mood)
-        self.history_page.update_content(self.mood_history)
         self.settings_page.update_content(self.pet_name)
         self.profile_page.update_content(self.username)
     
     def setup_timers(self):
-        """Setup animation and mood update timers"""
+        """Setup animation timer"""
         self.pet_animation_timer = QTimer(self)
         self.pet_animation_timer.timeout.connect(self.animate_pet)
         self.pet_animation_timer.start(300)
-        
-        self.mood_update_timer = QTimer(self)
-        self.mood_update_timer.timeout.connect(self.simulate_mood_change)
-        self.mood_update_timer.start(10000)
     
     def animate_pet(self):
         """Update pet animation on pet page"""
-        self.pet_page.animate()
+        if self.stackedWidget.currentWidget() == self.pet_page:
+            self.pet_page.animate()
     
-    def simulate_mood_change(self):
-        """Simulate mood changes for demo purposes"""
-        moods = ["happy", "sad", "angry", "neutral"]
-        new_mood = random.choice(moods)
-        
-        if new_mood != self.current_mood:
-            self.current_mood = new_mood
-            self.mood_history.append((self.current_mood, datetime.now().strftime("%H:%M %m/%d")))
-            
-            # Pet reacts to your mood
-            pet_reactions = {
-                "happy": "happy",
-                "sad": "sad",
-                "angry": "angry",
-                "neutral": "happy"
-            }
-            self.pet_mood = pet_reactions.get(self.current_mood, "happy")
-            
-            # Update all affected pages
-            self.home_page.update_mood(self.current_mood)
-            self.pet_page.update_mood(self.pet_mood)
-            self.history_page.update_history(self.mood_history)
+    def closeEvent(self, event):
+        """Handle application close"""
+        # Cleanup resources
+        if hasattr(self.home_page, 'cleanup'):
+            self.home_page.cleanup()
+        event.accept()
+
+
+def main():
+    """Main entry point"""
+    app = QApplication(sys.argv)
     
-    def generate_sample_history(self):
-        """Generate some sample mood history"""
-        moods = ["happy", "sad", "angry", "neutral"]
-        now = datetime.now()
-        for i in range(10):
-            time = now - timedelta(hours=i)
-            self.mood_history.append((random.choice(moods), time.strftime("%H:%M %m/%d")))
+    # Set application style
+    app.setStyle('Fusion')
+    
+    window = MoodMateApp()
+    window.show()
+    
+    sys.exit(app.exec())
+
+
+if __name__ == '__main__':
+    main()

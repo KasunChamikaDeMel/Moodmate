@@ -76,24 +76,67 @@ def predict_emotion_from_audio(base64_audio_string, sample_rate=22050):
 
 def predict_emotion_from_text(text):
     """
-    Analyzes text sentiment to infer emotion.
-    This is a placeholder and can be replaced with a more advanced NLP model.
+    Analyzes text sentiment to infer emotion using keyword matching.
+    Returns emotions matching your model labels: angry, neutral, stress, sleep
     """
-    if not text.strip():
+    if not text or not text.strip():
         return "Neutral"
+    
+    text_lower = text.lower()
+    
+    # Emotion keywords matching your model's labels
+    emotion_keywords = {
+        "angry": ["angry", "mad", "furious", "rage", "hate", "annoyed", "irritated",
+                  "frustrated", "outraged", "livid", "pissed", "upset", "annoying"],
         
-    analysis = TextBlob(text)
-    # Polarity is between -1 (negative) and 1 (positive)
-    if analysis.sentiment.polarity < -0.3:
-        return "Angry"
-    elif analysis.sentiment.polarity > 0.3:
-        return "Happy" # Assuming happy is a positive neutral state for this context
-    else:
-        # Subjectivity is between 0 (objective) and 1 (subjective)
-        if analysis.sentiment.subjectivity > 0.6:
-            return "Stress" # High subjectivity can indicate stress
-        else:
+        "stress": ["stress", "stressed", "anxious", "anxiety", "worried", "nervous",
+                   "tense", "overwhelmed", "pressure", "panic", "fear", "scared",
+                   "afraid", "concern", "troubled", "depressed", "sad", "unhappy"],
+        
+        "sleep": ["tired", "sleepy", "exhausted", "fatigue", "weary", "drowsy",
+                  "worn out", "drained", "lethargic", "sleep", "rest", "yawn", "sleepless"],
+        
+        "neutral": ["okay", "fine", "alright", "normal", "calm", "peaceful", "relaxed"]
+    }
+    
+    # Positive emotions map to neutral (since you don't have "happy" in model)
+    positive_words = ["happy", "joy", "great", "amazing", "wonderful", "fantastic", 
+                      "excellent", "love", "glad", "excited", "good"]
+    
+    # Count keyword matches
+    emotion_scores = {emotion: 0 for emotion in emotion_keywords.keys()}
+    
+    # Check positive words first (map to neutral)
+    pos_count = sum(1 for word in positive_words if word in text_lower)
+    if pos_count > 0:
+        emotion_scores["neutral"] += pos_count * 2  # Weight positive as neutral
+    
+    # Count emotion keywords
+    for emotion, keywords in emotion_keywords.items():
+        for keyword in keywords:
+            if keyword in text_lower:
+                emotion_scores[emotion] += 1
+    
+    # Get emotion with highest score
+    max_score = max(emotion_scores.values())
+    
+    if max_score == 0:
+        # Fallback to TextBlob sentiment
+        try:
+            from textblob import TextBlob
+            analysis = TextBlob(text)
+            if analysis.sentiment.polarity < -0.3:
+                return "Angry"
+            elif analysis.sentiment.polarity > 0.3:
+                return "Neutral"  # Changed from "Happy" to match your labels
+            else:
+                return "Neutral"
+        except:
             return "Neutral"
+    
+    # Return emotion with highest score (capitalize to match model output)
+    detected_emotion = max(emotion_scores.items(), key=lambda x: x[1])[0]
+    return detected_emotion.capitalize()
 
 from config import Config
 load_models(Config.FACE_MODEL_PATH, Config.VOICE_MODEL_PATH, Config.CASCADE_PATH)

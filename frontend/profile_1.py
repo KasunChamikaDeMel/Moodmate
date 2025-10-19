@@ -1,13 +1,20 @@
+"""
+Profile Page with Backend Integration
+"""
+
 from PySide6.QtWidgets import (QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, 
                               QLineEdit, QFormLayout, QSizePolicy, QSpacerItem, 
-                              QPlainTextEdit, QScrollArea, QWidget, QGroupBox)
+                              QPlainTextEdit, QScrollArea, QWidget, QGroupBox, QMessageBox)
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QIcon, QPixmap
+from api_client import APIClient
 
 class ProfilePage(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.user_id = 1
         self.setup_ui()
+        self.load_user_data()
     
     def setup_ui(self):
         self.setStyleSheet("""
@@ -40,7 +47,7 @@ class ProfilePage(QFrame):
         """)
         layout.addWidget(title)
         
-        # Avatar Section (now square)
+        # Avatar Section
         avatar_frame = QFrame()
         avatar_frame.setStyleSheet("""
             QFrame {
@@ -55,7 +62,6 @@ class ProfilePage(QFrame):
         avatar_layout.setSpacing(15)
         
         self.avatar_label = QLabel()
-        # Square avatar (120x120)
         avatar_pixmap = QPixmap(":/icons/user.png").scaled(
             QSize(120, 120), 
             Qt.IgnoreAspectRatio, 
@@ -120,7 +126,7 @@ class ProfilePage(QFrame):
         
         layout.addWidget(personal_group)
         
-        # Password Change Section (collapsible)
+        # Password Change Section
         self.password_group = QGroupBox("Change Password")
         self.password_group.setCheckable(True)
         self.password_group.setChecked(False)
@@ -161,9 +167,10 @@ class ProfilePage(QFrame):
         button_layout = QHBoxLayout()
         button_layout.setSpacing(15)
         
-        save_button = QPushButton("Save Changes")
-        save_button.setIcon(QIcon(":/icons/save.png"))
-        save_button.setStyleSheet("""
+        self.save_button = QPushButton("Save Changes")
+        self.save_button.setIcon(QIcon(":/icons/save.png"))
+        self.save_button.clicked.connect(self.save_profile)
+        self.save_button.setStyleSheet("""
             QPushButton {
                 background-color: #6c5ce7;
                 color: white;
@@ -184,6 +191,7 @@ class ProfilePage(QFrame):
         
         cancel_button = QPushButton("Cancel")
         cancel_button.setIcon(QIcon(":/icons/close.png"))
+        cancel_button.clicked.connect(self.load_user_data)
         cancel_button.setStyleSheet("""
             QPushButton {
                 background-color: #5c6378;
@@ -205,7 +213,7 @@ class ProfilePage(QFrame):
         
         button_layout.addStretch()
         button_layout.addWidget(cancel_button)
-        button_layout.addWidget(save_button)
+        button_layout.addWidget(self.save_button)
         
         layout.addLayout(button_layout)
         layout.addStretch()
@@ -263,8 +271,72 @@ class ProfilePage(QFrame):
         
         return field
     
+    def load_user_data(self):
+        """Load user data from backend"""
+        try:
+            result = APIClient.get_user(self.user_id)
+            
+            if 'error' in result:
+                print(f"Error loading user data: {result['error']}")
+                # Set default values
+                self.username_edit.setText("User")
+                self.email_edit.setText("user@example.com")
+                self.bio_edit.setPlainText("Hello! I'm using MoodMate to track and understand my emotions better.")
+                self.hobbies_edit.setText("Reading, Music, Hiking, Photography")
+                return
+            
+            # Populate fields with data from backend
+            self.username_edit.setText(result.get('username', 'User'))
+            self.email_edit.setText(result.get('email', 'user@example.com'))
+            self.bio_edit.setPlainText(result.get('bio', ''))
+            self.hobbies_edit.setText(result.get('hobbies', ''))
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to load profile: {str(e)}")
+    
+    def save_profile(self):
+        """Save profile changes to backend"""
+        try:
+            # Collect data from form
+            data = {
+                'username': self.username_edit.text().strip(),
+                'email': self.email_edit.text().strip(),
+                'bio': self.bio_edit.toPlainText().strip(),
+                'hobbies': self.hobbies_edit.text().strip()
+            }
+            
+            # Validate
+            if not data['username']:
+                QMessageBox.warning(self, "Validation Error", "Username cannot be empty!")
+                return
+            
+            if not data['email']:
+                QMessageBox.warning(self, "Validation Error", "Email cannot be empty!")
+                return
+            
+            # Send to backend
+            result = APIClient.update_user(self.user_id, data)
+            
+            if 'error' in result:
+                QMessageBox.warning(self, "Error", f"Failed to save profile: {result['error']}")
+                return
+            
+            QMessageBox.information(self, "Success", "Profile updated successfully!")
+            
+            # Update parent window username if it exists
+            if hasattr(self, 'parent') and self.parent():
+                parent_window = self.parent()
+                while parent_window.parent():
+                    parent_window = parent_window.parent()
+                
+                if hasattr(parent_window, 'username'):
+                    parent_window.username = data['username']
+                    if hasattr(parent_window, 'home_page'):
+                        parent_window.home_page.update_username(data['username'])
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save profile: {str(e)}")
+    
     def update_content(self, username):
-        self.username_edit.setText(username)
-        self.email_edit.setText("user@example.com")
-        self.bio_edit.setPlainText("Hello! I'm using MoodMate to track and understand my emotions better.")
-        self.hobbies_edit.setText("Reading, Music, Hiking, Photography")
+        """Legacy method for compatibility"""
+        self.load_user_data()

@@ -44,15 +44,18 @@ def start_backend():
     print("=" * 50)
     
     try:
-        # Import and run the app
-        from app import app, init_default_data
+        # MODIFIED: Import the factory function and init function
+        from app import create_app, init_default_data
         
+        # MODIFIED: Call the factory to create the app instance
+        app = create_app()
+
         # Initialize default data
         init_default_data()
         
         print("✅ Backend initialized successfully")
-        print("🌐 Backend will be available at: http://localhost:5000")
-        print("📚 API Documentation: http://localhost:5000/api/health")
+        print("🌐 Backend will be available at: http://127.0.0.1:5000/api")
+        print("🩺 Health check endpoint: http://127.0.0.1:5000/api/health")
         print("⏹️  Press Ctrl+C to stop the backend")
         print("=" * 50)
         
@@ -94,3 +97,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n❌ Unexpected error: {e}")
         print("Please check the error message above and try again")
+

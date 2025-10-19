@@ -1,10 +1,29 @@
-from PySide6.QtWidgets import (QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QLineEdit, QSizePolicy, QSpacerItem)
-from PySide6.QtCore import Qt
+"""
+Home Page with Backend Integration
+Handles face, voice, and text emotion detection
+"""
+
+from PySide6.QtWidgets import (QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, 
+                              QLineEdit, QSizePolicy, QSpacerItem, QMessageBox)
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QIcon
+import cv2
+import base64
+import pyaudio
+import wave
+import io
+from api_client import APIClient
 
 class HomePage(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.parent_window = parent
+        self.camera_active = False
+        self.recording_active = False
+        self.camera_timer = None
+        self.camera = None
+        self.audio_stream = None
+        self.audio_frames = []
         self.setup_ui()
         
     def setup_ui(self):
@@ -75,6 +94,8 @@ class HomePage(QFrame):
             }
         """)
         
+        controls_layout.addWidget(detection_title)
+        
         # Face detection controls
         self.setup_face_detection(controls_layout)
         
@@ -83,8 +104,6 @@ class HomePage(QFrame):
         
         # Text analysis controls
         self.setup_text_analysis(controls_layout)
-        
-        controls_layout.addWidget(detection_title)
         
         # Add cards to main layout
         layout.addWidget(greeting_card)
@@ -101,9 +120,12 @@ class HomePage(QFrame):
         
         self.face_start_button = QPushButton("Start Camera")
         self.face_start_button.setIcon(QIcon(":/icons/camera.png"))
+        self.face_start_button.clicked.connect(self.start_face_detection)
+        
         self.face_stop_button = QPushButton("Stop")
         self.face_stop_button.setIcon(QIcon(":/icons/stop.png"))
         self.face_stop_button.setEnabled(False)
+        self.face_stop_button.clicked.connect(self.stop_face_detection)
         
         self.style_buttons([self.face_start_button, self.face_stop_button])
         
@@ -126,9 +148,12 @@ class HomePage(QFrame):
         
         self.voice_start_button = QPushButton("Start Recording")
         self.voice_start_button.setIcon(QIcon(":/icons/microphone.png"))
+        self.voice_start_button.clicked.connect(self.start_voice_detection)
+        
         self.voice_stop_button = QPushButton("Stop")
         self.voice_stop_button.setIcon(QIcon(":/icons/stop.png"))
         self.voice_stop_button.setEnabled(False)
+        self.voice_stop_button.clicked.connect(self.stop_voice_detection)
         
         self.style_buttons([self.voice_start_button, self.voice_stop_button])
         
@@ -167,6 +192,7 @@ class HomePage(QFrame):
         
         self.analyze_button = QPushButton("Analyze")
         self.analyze_button.setIcon(QIcon(":/icons/analyze.png"))
+        self.analyze_button.clicked.connect(self.analyze_text)
         self.analyze_button.setStyleSheet("""
             QPushButton {
                 background-color: #6c5ce7;
@@ -218,6 +244,204 @@ class HomePage(QFrame):
                 }
             """)
     
+    # ==================== FACE DETECTION ====================
+    
+    def start_face_detection(self):
+        """Start camera and face emotion detection"""
+        try:
+            self.camera = cv2.VideoCapture(0)
+            if not self.camera.isOpened():
+                QMessageBox.warning(self, "Camera Error", "Could not access camera!")
+                return
+            
+            self.camera_active = True
+            self.face_start_button.setEnabled(False)
+            self.face_stop_button.setEnabled(True)
+            
+            # Timer to capture frames
+            self.camera_timer = QTimer()
+            self.camera_timer.timeout.connect(self.capture_and_analyze)
+            self.camera_timer.start(3000)  # Analyze every 3 seconds
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to start camera: {str(e)}")
+    
+    def capture_and_analyze(self):
+        """Capture frame and send to backend"""
+        if not self.camera_active or self.camera is None:
+            return
+        
+        try:
+            ret, frame = self.camera.read()
+            if not ret:
+                return
+            
+            # Encode frame to base64
+            _, buffer = cv2.imencode('.jpg', frame)
+            image_base64 = base64.b64encode(buffer).decode('utf-8')
+            
+            # Send to backend
+            result = APIClient.predict_face_emotion(image_base64)
+            
+            if 'error' in result:
+                print(f"Face detection error: {result['error']}")
+            elif 'emotion' in result:
+                emotion = result['emotion'].lower()
+                self.update_emotion(emotion)
+                
+        except Exception as e:
+            print(f"Capture error: {str(e)}")
+    
+    def stop_face_detection(self):
+        """Stop camera"""
+        self.camera_active = False
+        
+        if self.camera_timer:
+            self.camera_timer.stop()
+            self.camera_timer = None
+        
+        if self.camera:
+            self.camera.release()
+            self.camera = None
+        
+        self.face_start_button.setEnabled(True)
+        self.face_stop_button.setEnabled(False)
+    
+    # ==================== VOICE DETECTION ====================
+    
+    def start_voice_detection(self):
+        """Start recording audio"""
+        try:
+            self.audio = pyaudio.PyAudio()
+            self.audio_stream = self.audio.open(
+                format=pyaudio.paInt16,
+                channels=1,
+                rate=22050,
+                input=True,
+                frames_per_buffer=1024
+            )
+            
+            self.recording_active = True
+            self.audio_frames = []
+            self.voice_start_button.setEnabled(False)
+            self.voice_stop_button.setEnabled(True)
+            
+            # Start recording timer
+            self.record_timer = QTimer()
+            self.record_timer.timeout.connect(self.record_audio_chunk)
+            self.record_timer.start(100)  # Record chunks every 100ms
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to start recording: {str(e)}")
+    
+    def record_audio_chunk(self):
+        """Record audio chunk"""
+        if not self.recording_active:
+            return
+        
+        try:
+            data = self.audio_stream.read(1024, exception_on_overflow=False)
+            self.audio_frames.append(data)
+        except Exception as e:
+            print(f"Recording error: {str(e)}")
+    
+    def stop_voice_detection(self):
+        """Stop recording and analyze"""
+        self.recording_active = False
+        
+        if self.record_timer:
+            self.record_timer.stop()
+        
+        if self.audio_stream:
+            self.audio_stream.stop_stream()
+            self.audio_stream.close()
+        
+        if hasattr(self, 'audio'):
+            self.audio.terminate()
+        
+        self.voice_start_button.setEnabled(True)
+        self.voice_stop_button.setEnabled(False)
+        
+        # Process recorded audio
+        if self.audio_frames:
+            self.process_audio()
+    
+    def process_audio(self):
+        """Convert audio to base64 and send to backend"""
+        try:
+            # Create WAV file in memory
+            wav_io = io.BytesIO()
+            with wave.open(wav_io, 'wb') as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(self.audio.get_sample_size(pyaudio.paInt16))
+                wf.setframerate(22050)
+                wf.writeframes(b''.join(self.audio_frames))
+            
+            # Encode to base64
+            audio_base64 = base64.b64encode(wav_io.getvalue()).decode('utf-8')
+            
+            # Send to backend
+            result = APIClient.predict_voice_emotion(audio_base64)
+            
+            if 'error' in result:
+                QMessageBox.warning(self, "Error", f"Voice analysis failed: {result['error']}")
+            elif 'emotion' in result:
+                emotion = result['emotion'].lower()
+                self.update_emotion(emotion)
+                QMessageBox.information(self, "Voice Analysis", f"Detected emotion: {emotion.capitalize()}")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to process audio: {str(e)}")
+    
+    # ==================== TEXT ANALYSIS ====================
+    
+    def analyze_text(self):
+        """Analyze text emotion"""
+        text = self.text_input.text().strip()
+        
+        if not text:
+            QMessageBox.warning(self, "Input Required", "Please enter some text to analyze!")
+            return
+        
+        try:
+            result = APIClient.predict_text_emotion(text)
+            
+            if 'error' in result:
+                QMessageBox.warning(self, "Error", f"Text analysis failed: {result['error']}")
+            elif 'emotion' in result:
+                emotion = result['emotion'].lower()
+                self.update_emotion(emotion)
+                QMessageBox.information(self, "Text Analysis", f"Detected emotion: {emotion.capitalize()}")
+                self.text_input.clear()
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to analyze text: {str(e)}")
+    
+    # ==================== UI UPDATE ====================
+    
+    def update_emotion(self, emotion):
+        """Update UI with detected emotion"""
+        if hasattr(self.parent_window, 'current_mood'):
+            self.parent_window.current_mood = emotion
+        
+        self.update_mood(emotion)
+        
+        # Update pet mood
+        if hasattr(self.parent_window, 'pet_page'):
+            pet_reactions = {
+                "happy": "happy",
+                "sad": "sad",
+                "angry": "angry",
+                "stress": "sad",
+                "neutral": "happy",
+                "sleepy": "neutral"
+            }
+            pet_mood = pet_reactions.get(emotion, "happy")
+            self.parent_window.pet_page.update_mood(pet_mood)
+            
+            # Update pet mood in backend
+            APIClient.update_pet_mood(1, pet_mood)
+    
     def update_content(self, username, mood, pet_name):
         self.update_username(username)
         self.update_mood(mood)
@@ -230,11 +454,15 @@ class HomePage(QFrame):
             "happy": "#FFD700",
             "sad": "#1E90FF",
             "angry": "#FF4500",
-            "neutral": "#FFFFFF"
+            "stress": "#FF6347",
+            "neutral": "#FFFFFF",
+            "sleepy": "#9370DB"
         }
         self.mood_label.setText(f"Current Mood: {mood.capitalize()}")
         self.mood_label.setStyleSheet(f"""
             QLabel {{
+                font-size: 20px;
+                font-weight: medium;
                 color: {mood_colors.get(mood, '#FFFFFF')};
             }}
         """)
@@ -243,6 +471,15 @@ class HomePage(QFrame):
             "happy": "Your pet is excited to see you happy!",
             "sad": "Your pet is giving you comforting cuddles",
             "angry": "Your pet is trying to calm you down",
-            "neutral": "Your pet is peacefully resting"
+            "stress": "Your pet wants to help you relax",
+            "neutral": "Your pet is peacefully resting",
+            "sleepy": "Your pet is feeling sleepy too"
         }
         self.pet_reaction_label.setText(reactions.get(mood, ""))
+    
+    def cleanup(self):
+        """Cleanup resources when page is closed"""
+        if self.camera_active:
+            self.stop_face_detection()
+        if self.recording_active:
+            self.stop_voice_detection()

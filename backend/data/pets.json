@@ -1,0 +1,11 @@
+{
+  "1": {
+    "id": "1",
+    "name": "Moody",
+    "type": "virtual_pet",
+    "mood": "angry",
+    "level": 1,
+    "created_at": 1760800223.5383365,
+    "last_updated": 1760869777.6548104
+  }
+}

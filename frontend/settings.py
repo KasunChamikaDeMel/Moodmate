@@ -1,13 +1,19 @@
 from PySide6.QtWidgets import (QFrame, QLabel, QPushButton, QVBoxLayout, 
                               QHBoxLayout, QLineEdit, QComboBox, QCheckBox,
-                              QSizePolicy, QScrollArea, QWidget, QGroupBox)
+                              QSizePolicy, QScrollArea, QWidget, QGroupBox, QMessageBox)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
+from api_client import APIClient
+import json
+import os
 
 class SettingsPage(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.parent_window = parent
+        self.settings_file = "settings.json"
         self.setup_ui()
+        self.load_settings()
     
     def setup_ui(self):
         self.setStyleSheet("""
@@ -67,6 +73,9 @@ class SettingsPage(QFrame):
                 padding: 8px 12px;
                 font-size: 14px;
             }
+            QLineEdit:focus {
+                border: 1px solid #6c5ce7;
+            }
         """)
         
         pet_layout.addWidget(pet_name_label)
@@ -95,6 +104,14 @@ class SettingsPage(QFrame):
                 width: 30px;
                 border: none;
             }
+            QComboBox:hover {
+                border: 1px solid #6c5ce7;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #5c6378;
+                color: white;
+                selection-background-color: #6c5ce7;
+            }
         """)
         
         appearance_layout.addWidget(theme_label)
@@ -122,6 +139,9 @@ class SettingsPage(QFrame):
                 font-size: 14px;
                 min-width: 150px;
             }
+            QComboBox:hover {
+                border: 1px solid #6c5ce7;
+            }
         """)
         
         mic_layout.addWidget(mic_label)
@@ -146,6 +166,9 @@ class SettingsPage(QFrame):
                 font-size: 14px;
                 min-width: 150px;
             }
+            QComboBox:hover {
+                border: 1px solid #6c5ce7;
+            }
         """)
         
         cam_layout.addWidget(cam_label)
@@ -160,6 +183,7 @@ class SettingsPage(QFrame):
         notif_layout = notif_group.layout()
         
         self.notif_check = QCheckBox("Enable notifications")
+        self.notif_check.setChecked(True)
         self.notif_check.setStyleSheet("""
             QCheckBox {
                 color: white;
@@ -173,6 +197,7 @@ class SettingsPage(QFrame):
         """)
         
         self.sound_check = QCheckBox("Enable notification sounds")
+        self.sound_check.setChecked(True)
         self.sound_check.setStyleSheet("""
             QCheckBox {
                 color: white;
@@ -191,6 +216,7 @@ class SettingsPage(QFrame):
         
         save_button = QPushButton("Save Settings")
         save_button.setIcon(QIcon(":/icons/save.png"))
+        save_button.clicked.connect(self.save_settings)
         save_button.setStyleSheet("""
             QPushButton {
                 background-color: #6c5ce7;
@@ -248,7 +274,10 @@ class SettingsPage(QFrame):
         title_layout.setContentsMargins(0, 0, 0, 5)
         
         icon_label = QLabel()
-        icon_label.setPixmap(QIcon(icon_path).pixmap(20, 20))
+        try:
+            icon_label.setPixmap(QIcon(icon_path).pixmap(20, 20))
+        except:
+            pass  # Icon might not exist
         
         title_label = QLabel(title)
         title_label.setStyleSheet("font-weight: bold;")
@@ -260,5 +289,79 @@ class SettingsPage(QFrame):
         layout.addLayout(title_layout)
         return group
     
+    def load_settings(self):
+        """Load settings from local file"""
+        try:
+            if os.path.exists(self.settings_file):
+                with open(self.settings_file, 'r') as f:
+                    settings = json.load(f)
+                
+                self.pet_name_edit.setText(settings.get('pet_name', 'Buddy'))
+                self.theme_combo.setCurrentText(settings.get('theme', 'Dark'))
+                self.mic_combo.setCurrentText(settings.get('mic_permission', 'Allow'))
+                self.cam_combo.setCurrentText(settings.get('cam_permission', 'Allow'))
+                self.notif_check.setChecked(settings.get('enable_notifications', True))
+                self.sound_check.setChecked(settings.get('sound_notifications', True))
+                
+                print("✅ Settings loaded from file")
+            else:
+                # Load from backend
+                self.load_from_backend()
+        except Exception as e:
+            print(f"Error loading settings: {e}")
+            self.load_from_backend()
+    
+    def load_from_backend(self):
+        """Load pet name from backend"""
+        try:
+            result = APIClient.get_pet_data(1)
+            if 'error' not in result:
+                self.pet_name_edit.setText(result.get('pet_name', 'Buddy'))
+        except Exception as e:
+            print(f"Error loading from backend: {e}")
+            self.pet_name_edit.setText("Buddy")
+    
+    def save_settings(self):
+        """Save settings locally and update backend"""
+        try:
+            # Get current settings
+            settings = {
+                'pet_name': self.pet_name_edit.text().strip(),
+                'theme': self.theme_combo.currentText(),
+                'mic_permission': self.mic_combo.currentText(),
+                'cam_permission': self.cam_combo.currentText(),
+                'enable_notifications': self.notif_check.isChecked(),
+                'sound_notifications': self.sound_check.isChecked()
+            }
+            
+            # Save locally
+            with open(self.settings_file, 'w') as f:
+                json.dump(settings, f, indent=2)
+            
+            # Update pet name in backend
+            pet_name = settings['pet_name']
+            if pet_name:
+                result = APIClient.update_pet_data(1, {'pet_name': pet_name})
+                
+                if 'error' not in result:
+                    # Update parent window
+                    if hasattr(self.parent_window, 'pet_name'):
+                        self.parent_window.pet_name = pet_name
+                        if hasattr(self.parent_window, 'pet_page'):
+                            self.parent_window.pet_page.pet_name = pet_name
+                            self.parent_window.pet_page.update_mood()
+                    
+                    QMessageBox.information(self, "Success", "Settings saved successfully!")
+                else:
+                    QMessageBox.warning(self, "Partial Success", 
+                                       "Settings saved locally, but couldn't update backend.\n" + 
+                                       f"Error: {result['error']}")
+            else:
+                QMessageBox.information(self, "Success", "Settings saved successfully!")
+                
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save settings: {str(e)}")
+    
     def update_content(self, pet_name):
+        """Update with pet name from parent"""
         self.pet_name_edit.setText(pet_name)

@@ -2,6 +2,8 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from .routes import main_bp
 
+__all__ = ['main_bp']
+
 def create_app(config_class):
     app = Flask(__name__)
     app.config.from_object(config_class)

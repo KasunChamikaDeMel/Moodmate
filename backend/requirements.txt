@@ -4,4 +4,11 @@ tensorflow
 numpy
 Pillow
 flask-socketio
-eventlet  # A high-performance server needed for Socket.IO
+eventlet
+textblob
+noisereduce
+librosa
+opencv-python
+flask-sqlalchemy
+flask-migrate
+pymysql  # or psycopg2-binary for PostgreSQL, or mysqlclient

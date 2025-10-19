@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout, QHBoxLayout, QSizePolicy, QSpacerItem
 from PySide6.QtCore import Qt
 import random
+import requests
 
 class PetPage(QFrame):
     def __init__(self, parent=None):
@@ -102,3 +103,13 @@ class PetPage(QFrame):
         frames = self.animation_frames.get(self.pet_mood, ["🐾"])
         self.current_frame = (self.current_frame + 1) % len(frames)
         self.pet_animation_label.setText(frames[self.current_frame])
+
+    def refresh_data(self):
+        try:
+            print("Refreshing pet data...")
+            response = requests.get(f"http://127.0.0.1:5000/api/pets")
+            if response.status_code == 200:
+                self.pet_data = response.json()
+            pass
+        except Exception as e:
+            print(f"Error refreshing pet data: {e}")
