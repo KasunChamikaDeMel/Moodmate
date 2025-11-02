@@ -1,1 +1,602 @@
-[]
+[
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T13:40:10.496898"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:40:19.511432"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:40:28.479842"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:40:37.500344"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:40:46.543746"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T13:40:55.652991"
+  },
+  {
+    "user_id": "1",
+    "mood": "sleep",
+    "source": "face",
+    "timestamp": "2025-11-02T13:41:04.712589"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:41:13.578602"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:41:22.622414"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T13:41:31.756125"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T13:41:40.763235"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:41:49.644894"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:41:58.620018"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T13:42:07.783828"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:42:16.679596"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:42:25.791018"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T13:42:34.866954"
+  },
+  {
+    "user_id": "1",
+    "mood": "sleep",
+    "source": "face",
+    "timestamp": "2025-11-02T13:42:45.345398"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:42:52.726819"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T13:43:01.880720"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:43:10.778496"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:43:23.752603"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:43:34.227374"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:43:40.808053"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:43:49.912166"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:43:58.902575"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:44:07.789600"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T13:44:16.953895"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T13:44:25.934495"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:44:34.819933"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:44:43.825611"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T13:44:53.007310"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:45:01.801202"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T13:45:10.938861"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T13:45:19.952998"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:45:28.812187"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T13:45:37.940212"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:45:46.844724"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T13:45:55.983277"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:46:04.834930"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:46:13.867118"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:46:22.846611"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:46:31.869609"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T13:46:41.035111"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:46:49.909000"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:46:58.902763"
+  },
+  {
+    "user_id": "1",
+    "mood": "sleep",
+    "source": "face",
+    "timestamp": "2025-11-02T13:47:08.062449"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:47:16.963051"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:47:25.945402"
+  },
+  {
+    "user_id": "1",
+    "mood": "sleep",
+    "source": "face",
+    "timestamp": "2025-11-02T13:47:35.029536"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:47:43.950992"
+  },
+  {
+    "user_id": "1",
+    "mood": "sleep",
+    "source": "face",
+    "timestamp": "2025-11-02T13:47:53.059592"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:48:01.965513"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:48:11.009743"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:48:20.061384"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:48:29.045380"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:48:38.018671"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:48:47.028659"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:48:55.994745"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T13:49:05.211560"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:49:14.071338"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:49:23.046139"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:49:32.071017"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:49:41.078450"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:49:50.111673"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:49:59.147764"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:50:08.118903"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:50:17.134837"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T13:50:26.246103"
+  },
+  {
+    "user_id": "1",
+    "mood": "sleep",
+    "source": "face",
+    "timestamp": "2025-11-02T13:50:35.323395"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:50:44.156840"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:50:53.162363"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:51:02.185725"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:51:11.164695"
+  },
+  {
+    "user_id": "1",
+    "mood": "sleep",
+    "source": "face",
+    "timestamp": "2025-11-02T13:51:20.333674"
+  },
+  {
+    "user_id": "1",
+    "mood": "sleep",
+    "source": "face",
+    "timestamp": "2025-11-02T13:51:29.345934"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:51:38.214425"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T13:51:47.402500"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:51:56.221262"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T13:52:05.349477"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:52:14.263178"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:52:23.240035"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:52:32.257138"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:52:41.266325"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T13:52:50.267524"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "voice",
+    "timestamp": "2025-11-02T13:53:12.735752"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T14:01:56.368514"
+  },
+  {
+    "user_id": "1",
+    "mood": "sleep",
+    "source": "face",
+    "timestamp": "2025-11-02T14:02:05.497673"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T14:02:14.250204"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T14:02:23.216374"
+  },
+  {
+    "user_id": "1",
+    "mood": "sleep",
+    "source": "face",
+    "timestamp": "2025-11-02T14:02:32.257640"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T14:02:41.214479"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T14:02:50.105860"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "face",
+    "timestamp": "2025-11-02T14:02:59.273975"
+  },
+  {
+    "user_id": "1",
+    "mood": "sleep",
+    "source": "face",
+    "timestamp": "2025-11-02T14:03:08.298710"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-02T14:03:17.288831"
+  },
+  {
+    "user_id": "1",
+    "mood": "stress",
+    "source": "voice",
+    "timestamp": "2025-11-02T14:03:28.605345"
+  },
+  {
+    "user_id": "1",
+    "mood": "sleep",
+    "source": "text",
+    "timestamp": "2025-11-02T14:11:36.294426"
+  },
+  {
+    "user_id": "1",
+    "mood": "angry",
+    "source": "text",
+    "timestamp": "2025-11-02T14:11:55.071136"
+  },
+  {
+    "user_id": "1",
+    "mood": "angry",
+    "source": "text",
+    "timestamp": "2025-11-02T14:12:12.144992"
+  }
+]

@@ -1,37 +1,28 @@
+
+
 from flask import Blueprint, request, jsonify
 from core.inference import predict_emotion_from_image, predict_emotion_from_audio, predict_emotion_from_text
 import time
 import os
 import json
+from datetime import datetime
 from config import Config
-
-# Add ALL data file configuration variables
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = os.path.join(BASE_DIR, 'data')
-
-# Define all possible data files
-USERS_FILE = Config.USERS_FILE
-PET_DATA_FILE = Config.PET_DATA_FILE
-EMOTION_HISTORY_FILE = Config.EMOTION_HISTORY_FILE
-MOOD_HISTORY_FILE = Config.MOOD_HISTORY_FILE
-USER_SETTINGS_FILE = Config.USER_SETTINGS_FILE
-SESSION_DATA_FILE = Config.SESSION_DATA_FILE
-ANALYTICS_FILE = Config.ANALYTICS_FILE
-
-# Use Config's utility functions
-save_json_file = Config.save_json_file
-load_json_file = Config.load_json_file
 
 # Create the blueprint
 main_bp = Blueprint('main', __name__)
 
-# Initialize data files using Config
-Config.ensure_data_files()
+# Data file paths
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(BASE_DIR, 'data')
+USERS_FILE = Config.USERS_FILE
+PET_DATA_FILE = Config.PET_DATA_FILE
+MOOD_HISTORY_FILE = Config.MOOD_HISTORY_FILE
 
 # Utility functions
 def save_json_file(file_path, data):
     """Save data to a JSON file"""
     try:
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, 'w') as f:
             json.dump(data, f, indent=2)
         return True
@@ -42,302 +33,348 @@ def save_json_file(file_path, data):
 def load_json_file(file_path):
     """Load data from a JSON file"""
     try:
+        if not os.path.exists(file_path):
+            return [] if 'history' in file_path else {}
         with open(file_path, 'r') as f:
             return json.load(f)
     except Exception as e:
         print(f"Error loading {file_path}: {e}")
-        return {}
+        return [] if 'history' in file_path else {}
 
-def ensure_data_files():
-    """Create data directory and files if they don't exist"""
+def init_data_files():
+    """Initialize data files with default data"""
     os.makedirs(DATA_DIR, exist_ok=True)
     
-    # Create empty JSON files if they don't exist
-    files_to_create = [
-        USERS_FILE, 
-        PET_DATA_FILE, 
-        EMOTION_HISTORY_FILE,
-        MOOD_HISTORY_FILE,
-        USER_SETTINGS_FILE,
-        SESSION_DATA_FILE,
-        ANALYTICS_FILE
-    ]
-    
-    for file_path in files_to_create:
-        if not os.path.exists(file_path):
-            save_json_file(file_path, {})
-            print(f"✅ Created data file: {file_path}")
-
-# Initialize data files
-ensure_data_files()
-
-@main_bp.route('/', methods=['GET'])
-def index():
-    return jsonify({
-        "message": "MoodMate Backend API",
-        "status": "running", 
-        "endpoints": {
-            "health": "/api/health",
-            "test": "/api/test",
-            "users": "/api/users",
-            "mood_history": "/api/mood_history",
-            "predict_face": "/api/predict_face",
-            "predict_voice": "/api/predict_voice", 
-            "predict_text": "/api/predict_text"
+    # Initialize users file
+    if not os.path.exists(USERS_FILE):
+        default_users = {
+            "users": [{
+                "id": 1,
+                "username": "User",
+                "email": "user@example.com",
+                "bio": "Hello! I'm using MoodMate.",
+                "created_at": datetime.now().isoformat()
+            }]
         }
-    })
-
-# Test route
-@main_bp.route('/test', methods=['GET'])
-def test():
-    return jsonify({
-        "message": "MoodMate API is working!", 
-        "status": "success",
-        "models_loaded": True,
-        "data_files_ready": True
-    })
-
-# Face emotion prediction
-@main_bp.route('/predict_face', methods=['POST'])
-def predict_face():
-    try:
-        data = request.get_json()
-        if not data or 'image' not in data:
-            return jsonify({"error": "Missing 'image' data"}), 400
-        
-        from core.inference import predict_emotion_from_image
-        emotion = predict_emotion_from_image(data['image'])
-        return jsonify({"emotion": emotion, "timestamp": time.time()})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# Voice emotion prediction
-@main_bp.route('/predict_voice', methods=['POST'])
-def predict_voice():
-    try:
-        data = request.get_json()
-        if not data or 'audio' not in data:
-            return jsonify({"error": "Missing 'audio' data"}), 400
-
-        from core.inference import predict_emotion_from_audio
-        emotion = predict_emotion_from_audio(data['audio'])
-        return jsonify({"emotion": emotion, "timestamp": time.time()})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# Text emotion prediction
-@main_bp.route('/predict_text', methods=['POST'])
-def predict_text():
-    try:
-        data = request.get_json()
-        if not data or 'text' not in data:
-            return jsonify({"error": "Missing 'text' data"}), 400
-
-        from core.inference import predict_emotion_from_text
-        emotion = predict_emotion_from_text(data['text'])
-        return jsonify({"emotion": emotion, "timestamp": time.time()})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# Mood history routes
-@main_bp.route('/mood_history', methods=['GET'])
-def get_mood_history():
-    try:
-        history = load_json_file(MOOD_HISTORY_FILE)
-        return jsonify({"mood_history": history})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        save_json_file(USERS_FILE, default_users)
+        print(f"✅ Created users file")
     
-
-# Get mood history for a specific user
-@main_bp.route('/mood_history/<user_id>', methods=['GET'])
-def get_user_mood_history(user_id):
-    try:
-        history = load_json_file(MOOD_HISTORY_FILE)
-        
-        # Handle both list and dictionary formats
-        user_history = {}
-        
-        if isinstance(history, dict):
-            # Dictionary format: {timestamp: entry}
-            for timestamp, entry in history.items():
-                entry_user_id = entry.get('user_id', '1')
-                if entry_user_id == user_id:
-                    user_history[timestamp] = entry
-        elif isinstance(history, list):
-            # List format: [entry1, entry2, ...]
-            for i, entry in enumerate(history):
-                entry_user_id = entry.get('user_id', '1')
-                if entry_user_id == user_id:
-                    # Use index as key or generate timestamp key
-                    timestamp = entry.get('timestamp', f"entry_{i}")
-                    user_history[timestamp] = entry
-        
-        return jsonify({
-            "user_id": user_id, 
-            "mood_history": user_history,
-            "total_entries": len(user_history)
-        })
-    except Exception as e:
-        print(f"❌ Error in get_user_mood_history: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+    # Initialize pet data file
+    if not os.path.exists(PET_DATA_FILE):
+        default_pet = {
+            "1": {
+                "pet_name": "Buddy",
+                "pet_mood": "happy",
+                "pet_level": 1,
+                "pet_exp": 0,
+                "happiness": 80,
+                "energy": 65,
+                "hunger": 30,
+                "last_fed": datetime.now().isoformat()
+            }
+        }
+        save_json_file(PET_DATA_FILE, default_pet)
+        print(f"✅ Created pet data file")
     
+    # Initialize mood history (as list)
+    if not os.path.exists(MOOD_HISTORY_FILE):
+        save_json_file(MOOD_HISTORY_FILE, [])
+        print(f"✅ Created mood history file")
 
-@main_bp.route('/mood_history', methods=['POST'])
-def add_mood_history():
-    try:
-        data = request.get_json()
-        history = load_json_file(MOOD_HISTORY_FILE)
-        
-        # Ensure history is a dictionary
-        if isinstance(history, list):
-            # Convert list to dictionary
-            new_history = {}
-            for i, entry in enumerate(history):
-                timestamp = entry.get('timestamp', f"entry_{i}")
-                new_history[timestamp] = entry
-            history = new_history
-            save_json_file(MOOD_HISTORY_FILE, history)
-        
-        # Add new mood entry
-        timestamp = str(time.time())
-        
-        # Ensure user_id is included
-        if 'user_id' not in data:
-            data['user_id'] = '1'
-            
-        history[timestamp] = data
-        
-        save_json_file(MOOD_HISTORY_FILE, history)
-        return jsonify({"message": "Mood added to history", "timestamp": timestamp})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+# Initialize on import
+init_data_files()
 
-# User management routes
-@main_bp.route('/users', methods=['GET'])
-def get_users():
-    try:
-        users = load_json_file(USERS_FILE)
-        return jsonify({"users": users})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+# ============= ROUTES =============
 
-@main_bp.route('/users', methods=['POST'])
-def add_user():
-    try:
-        data = request.get_json()
-        users = load_json_file(USERS_FILE)
-        
-        user_id = data.get('id', str(time.time()))
-        users[user_id] = data
-        
-        save_json_file(USERS_FILE, users)
-        return jsonify({"message": "User added", "user_id": user_id})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    
 @main_bp.route('/health', methods=['GET'])
 def health():
+    """Health check endpoint"""
     return jsonify({
         "status": "healthy",
         "models_loaded": True,
         "timestamp": time.time()
     })
 
-# Add these missing routes that the frontend is trying to access:
+@main_bp.route('/test', methods=['GET'])
+def test():
+    """Test endpoint"""
+    return jsonify({
+        "message": "MoodMate API is working!", 
+        "status": "success",
+        "models_loaded": True
+    })
 
-# User routes
-@main_bp.route('/user/<user_id>', methods=['GET'])
-def get_user(user_id):
+# ============= EMOTION DETECTION =============
+
+@main_bp.route('/predict_face', methods=['POST'])
+def predict_face():
+    """Face emotion prediction"""
     try:
-        users = load_json_file(USERS_FILE)
-        user = users.get(user_id)
+        data = request.get_json()
+        if not data or 'image' not in data:
+            return jsonify({"error": "Missing 'image' data"}), 400
+        
+        emotion = predict_emotion_from_image(data['image'])
+        
+        # Add to mood history
+        add_to_history(1, emotion, "face")
+        
+        return jsonify({
+            "emotion": emotion,
+            "timestamp": time.time(),
+            "source": "face"
+        })
+    except Exception as e:
+        print(f"Face prediction error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@main_bp.route('/predict_voice', methods=['POST'])
+def predict_voice():
+    """Voice emotion prediction"""
+    try:
+        data = request.get_json()
+        if not data or 'audio' not in data:
+            return jsonify({"error": "Missing 'audio' data"}), 400
+
+        emotion = predict_emotion_from_audio(data['audio'])
+        
+        # Add to mood history
+        add_to_history(1, emotion, "voice")
+        
+        return jsonify({
+            "emotion": emotion,
+            "timestamp": time.time(),
+            "source": "voice"
+        })
+    except Exception as e:
+        print(f"Voice prediction error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@main_bp.route('/predict_text', methods=['POST'])
+def predict_text():
+    """Text emotion prediction"""
+    try:
+        data = request.get_json()
+        if not data or 'text' not in data:
+            return jsonify({"error": "Missing 'text' data"}), 400
+
+        emotion = predict_emotion_from_text(data['text'])
+        
+        # Add to mood history
+        add_to_history(1, emotion, "text")
+        
+        return jsonify({
+            "emotion": emotion,
+            "timestamp": time.time(),
+            "source": "text"
+        })
+    except Exception as e:
+        print(f"Text prediction error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# ============= MOOD HISTORY =============
+
+def add_to_history(user_id, mood, source):
+    """Helper function to add mood to history"""
+    try:
+        history = load_json_file(MOOD_HISTORY_FILE)
+        
+        entry = {
+            "user_id": str(user_id),
+            "mood": mood.lower(),
+            "source": source,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        history.append(entry)
+        
+        # Keep only last 100 entries
+        if len(history) > 100:
+            history = history[-100:]
+        
+        save_json_file(MOOD_HISTORY_FILE, history)
+        return True
+    except Exception as e:
+        print(f"Error adding to history: {e}")
+        return False
+
+@main_bp.route('/mood_history/<user_id>', methods=['GET'])
+def get_user_mood_history(user_id):
+    """Get mood history for specific user"""
+    try:
+        history = load_json_file(MOOD_HISTORY_FILE)
+        
+        # Filter by user_id
+        user_history = [
+            entry for entry in history 
+            if str(entry.get('user_id', '1')) == str(user_id)
+        ]
+        
+        # Sort by timestamp (newest first)
+        user_history.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        
+        return jsonify(user_history)
+    except Exception as e:
+        print(f"Error getting mood history: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@main_bp.route('/mood_history', methods=['POST'])
+def add_mood_history():
+    """Add mood history entry"""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id', '1')
+        mood = data.get('mood', 'neutral')
+        source = data.get('source', 'manual')
+        
+        success = add_to_history(user_id, mood, source)
+        
+        if success:
+            return jsonify({
+                "message": "Mood added to history",
+                "timestamp": datetime.now().isoformat()
+            })
+        else:
+            return jsonify({"error": "Failed to add mood"}), 500
+    except Exception as e:
+        print(f"Error adding mood: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# ============= USER MANAGEMENT =============
+
+@main_bp.route('/user/<int:user_id>', methods=['GET'])
+def get_user(user_id):
+    """Get user information"""
+    try:
+        users_data = load_json_file(USERS_FILE)
+        users = users_data.get('users', [])
+        
+        user = next((u for u in users if u.get('id') == user_id), None)
+        
         if user:
-            return jsonify({"user": user})
+            return jsonify(user)
         else:
             return jsonify({"error": "User not found"}), 404
     except Exception as e:
+        print(f"Error getting user: {e}")
         return jsonify({"error": str(e)}), 500
 
-# Pet routes
-@main_bp.route('/pets', methods=['GET'])
-def get_pets():
+@main_bp.route('/user/<int:user_id>', methods=['PUT'])
+def update_user(user_id):
+    """Update user information"""
     try:
-        pets = load_json_file(PET_DATA_FILE)
-        return jsonify({"pets": pets})
+        data = request.get_json()
+        users_data = load_json_file(USERS_FILE)
+        users = users_data.get('users', [])
+        
+        for i, user in enumerate(users):
+            if user.get('id') == user_id:
+                users[i].update(data)
+                users[i]['updated_at'] = datetime.now().isoformat()
+                users_data['users'] = users
+                save_json_file(USERS_FILE, users_data)
+                return jsonify(users[i])
+        
+        return jsonify({"error": "User not found"}), 404
     except Exception as e:
+        print(f"Error updating user: {e}")
         return jsonify({"error": str(e)}), 500
 
-@main_bp.route('/pet/<pet_id>', methods=['GET'])
-def get_pet(pet_id):
+# ============= PET MANAGEMENT =============
+
+@main_bp.route('/pet/<int:user_id>', methods=['GET'])
+def get_pet_data(user_id):
+    """Get pet data for user"""
     try:
         pets = load_json_file(PET_DATA_FILE)
-        pet = pets.get(pet_id)
+        pet = pets.get(str(user_id))
+        
         if pet:
-            return jsonify({"pet": pet})
+            return jsonify(pet)
         else:
-            return jsonify({"error": "Pet not found"}), 404
+            # Return default pet
+            default_pet = {
+                "pet_name": "Buddy",
+                "pet_mood": "happy",
+                "pet_level": 1,
+                "pet_exp": 0,
+                "happiness": 80,
+                "energy": 65,
+                "hunger": 30
+            }
+            return jsonify(default_pet)
     except Exception as e:
+        print(f"Error getting pet: {e}")
         return jsonify({"error": str(e)}), 500
 
-@main_bp.route('/pet/<pet_id>/mood', methods=['PUT'])
-def update_pet_mood(pet_id):
+@main_bp.route('/pet/<int:user_id>', methods=['PUT'])
+def update_pet_data(user_id):
+    """Update pet data"""
     try:
         data = request.get_json()
         pets = load_json_file(PET_DATA_FILE)
         
-        if pet_id not in pets:
-            # Create a default pet if it doesn't exist
-            pets[pet_id] = {
-                "id": pet_id,
-                "name": "Moody",
-                "type": "virtual_pet", 
-                "mood": "happy",
-                "level": 1,
-                "created_at": time.time()
-            }
+        pet_key = str(user_id)
+        if pet_key not in pets:
+            pets[pet_key] = {}
         
-        # Update the pet's mood
-        pets[pet_id]['mood'] = data.get('mood', 'happy')
-        pets[pet_id]['last_updated'] = time.time()
+        pets[pet_key].update(data)
+        pets[pet_key]['last_updated'] = datetime.now().isoformat()
         
         save_json_file(PET_DATA_FILE, pets)
-        return jsonify({
-            "message": "Pet mood updated", 
-            "pet_id": pet_id,
-            "mood": pets[pet_id]['mood']
-        })
+        return jsonify(pets[pet_key])
     except Exception as e:
+        print(f"Error updating pet: {e}")
         return jsonify({"error": str(e)}), 500
 
-# Create default data if files are empty
-def initialize_default_data():
-    """Create default user and pet if they don't exist"""
-    users = load_json_file(USERS_FILE)
-    if not users:
-        users['1'] = {
-            "id": "1",
-            "name": "Default User",
-            "email": "user@example.com",
-            "created_at": time.time()
-        }
-        save_json_file(USERS_FILE, users)
-        print("✅ Created default user")
-    
-    pets = load_json_file(PET_DATA_FILE)
-    if not pets:
-        pets['1'] = {
-            "id": "1",
-            "name": "Moody",
-            "type": "virtual_pet",
-            "mood": "happy",
-            "level": 1,
-            "created_at": time.time()
-        }
+@main_bp.route('/pet/<int:user_id>/feed', methods=['POST'])
+def feed_pet(user_id):
+    """Feed the pet"""
+    try:
+        pets = load_json_file(PET_DATA_FILE)
+        pet_key = str(user_id)
+        
+        if pet_key not in pets:
+            return jsonify({"error": "Pet not found"}), 404
+        
+        # Update pet stats
+        pet = pets[pet_key]
+        pet['hunger'] = max(0, pet.get('hunger', 30) - 20)
+        pet['happiness'] = min(100, pet.get('happiness', 80) + 10)
+        pet['pet_exp'] = min(100, pet.get('pet_exp', 0) + 5)
+        pet['last_fed'] = datetime.now().isoformat()
+        pet['pet_mood'] = 'happy'
+        
         save_json_file(PET_DATA_FILE, pets)
-        print("✅ Created default pet")
+        return jsonify(pet)
+    except Exception as e:
+        print(f"Error feeding pet: {e}")
+        return jsonify({"error": str(e)}), 500
 
-# Initialize default data
-initialize_default_data()
+@main_bp.route('/pet/<int:user_id>/mood', methods=['PUT'])
+def update_pet_mood(user_id):
+    """Update pet mood"""
+    try:
+        data = request.get_json()
+        mood = data.get('mood', 'happy')
+        
+        pets = load_json_file(PET_DATA_FILE)
+        pet_key = str(user_id)
+        
+        if pet_key not in pets:
+            pets[pet_key] = {
+                "pet_name": "Buddy",
+                "pet_level": 1,
+                "pet_exp": 0
+            }
+        
+        pets[pet_key]['pet_mood'] = mood
+        pets[pet_key]['last_updated'] = datetime.now().isoformat()
+        
+        save_json_file(PET_DATA_FILE, pets)
+        return jsonify(pets[pet_key])
+    except Exception as e:
+        print(f"Error updating pet mood: {e}")
+        return jsonify({"error": str(e)}), 500
+
+print("✅ Backend routes loaded successfully")
