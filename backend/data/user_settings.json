@@ -1,1 +1,11 @@
-{}
+{
+  "1": {
+    "theme": "Dark",
+    "mic_permission": "Always Allow",
+    "cam_permission": "Always Allow",
+    "enable_notifications": true,
+    "sound_notifications": true,
+    "auto_dismiss": true,
+    "updated_at": "2025-11-15T22:23:30.495501"
+  }
+}

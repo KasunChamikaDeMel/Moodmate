@@ -1,5 +1,3 @@
-
-
 from flask import Blueprint, request, jsonify
 from core.inference import predict_emotion_from_image, predict_emotion_from_audio, predict_emotion_from_text
 import time
@@ -17,6 +15,7 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 USERS_FILE = Config.USERS_FILE
 PET_DATA_FILE = Config.PET_DATA_FILE
 MOOD_HISTORY_FILE = Config.MOOD_HISTORY_FILE
+SETTINGS_FILE = os.path.join(DATA_DIR, 'user_settings.json')  # NEW
 
 # Utility functions
 def save_json_file(file_path, data):
@@ -64,6 +63,7 @@ def init_data_files():
         default_pet = {
             "1": {
                 "pet_name": "Buddy",
+                "pet_type": "cat",
                 "pet_mood": "happy",
                 "pet_level": 1,
                 "pet_exp": 0,
@@ -80,6 +80,22 @@ def init_data_files():
     if not os.path.exists(MOOD_HISTORY_FILE):
         save_json_file(MOOD_HISTORY_FILE, [])
         print(f"✅ Created mood history file")
+    
+    # Initialize settings file (NEW)
+    if not os.path.exists(SETTINGS_FILE):
+        default_settings = {
+            "1": {
+                "theme": "Dark",
+                "mic_permission": "Always Allow",
+                "cam_permission": "Always Allow",
+                "enable_notifications": True,
+                "sound_notifications": True,
+                "auto_dismiss": True,
+                "created_at": datetime.now().isoformat()
+            }
+        }
+        save_json_file(SETTINGS_FILE, default_settings)
+        print(f"✅ Created user settings file")
 
 # Initialize on import
 init_data_files()
@@ -242,6 +258,106 @@ def add_mood_history():
 
 # ============= USER MANAGEMENT =============
 
+@main_bp.route('/auth/register', methods=['POST'])
+def register_user():
+    """Register a new user"""
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        email = data.get('email')
+        password_hash = data.get('password')
+        
+        if not username or not email or not password_hash:
+            return jsonify({"error": "Missing required fields"}), 400
+        
+        users_data = load_json_file(USERS_FILE)
+        users = users_data.get('users', [])
+        
+        # Check if email already exists
+        if any(u.get('email') == email for u in users):
+            return jsonify({"error": "Email already registered"}), 400
+        
+        # Create new user
+        new_user = {
+            "id": len(users) + 1,
+            "username": username,
+            "email": email,
+            "password": password_hash,
+            "bio": f"Hello! I'm {username}.",
+            "created_at": datetime.now().isoformat()
+        }
+        
+        users.append(new_user)
+        users_data['users'] = users
+        save_json_file(USERS_FILE, users_data)
+        
+        # Create default pet for new user
+        pets = load_json_file(PET_DATA_FILE)
+        pets[str(new_user['id'])] = {
+            "pet_name": "Buddy",
+            "pet_type": "cat",
+            "pet_mood": "happy",
+            "pet_level": 1,
+            "pet_exp": 0,
+            "happiness": 80,
+            "energy": 65,
+            "hunger": 30,
+            "last_fed": datetime.now().isoformat()
+        }
+        save_json_file(PET_DATA_FILE, pets)
+        
+        # Create default settings for new user
+        settings_data = load_json_file(SETTINGS_FILE)
+        settings_data[str(new_user['id'])] = {
+            "theme": "Dark",
+            "mic_permission": "Always Allow",
+            "cam_permission": "Always Allow",
+            "enable_notifications": True,
+            "sound_notifications": True,
+            "auto_dismiss": True,
+            "created_at": datetime.now().isoformat()
+        }
+        save_json_file(SETTINGS_FILE, settings_data)
+        
+        print(f"✅ New user registered: {username} ({email})")
+        
+        # Return user data without password
+        user_response = {k: v for k, v in new_user.items() if k != 'password'}
+        return jsonify(user_response), 201
+        
+    except Exception as e:
+        print(f"Registration error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@main_bp.route('/auth/login', methods=['POST'])
+def login_user():
+    """Login user"""
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        password_hash = data.get('password')
+        
+        if not email or not password_hash:
+            return jsonify({"error": "Missing email or password"}), 400
+        
+        users_data = load_json_file(USERS_FILE)
+        users = users_data.get('users', [])
+        
+        # Find user by email and password
+        user = next((u for u in users if u.get('email') == email and u.get('password') == password_hash), None)
+        
+        if user:
+            print(f"✅ User logged in: {user['username']}")
+            # Return user data without password
+            user_response = {k: v for k, v in user.items() if k != 'password'}
+            return jsonify(user_response)
+        else:
+            return jsonify({"error": "Invalid email or password"}), 401
+            
+    except Exception as e:
+        print(f"Login error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @main_bp.route('/user/<int:user_id>', methods=['GET'])
 def get_user(user_id):
     """Get user information"""
@@ -280,6 +396,55 @@ def update_user(user_id):
         print(f"Error updating user: {e}")
         return jsonify({"error": str(e)}), 500
 
+# ============= USER SETTINGS (NEW) =============
+
+@main_bp.route('/users/<int:user_id>/settings', methods=['GET'])
+def get_user_settings(user_id):
+    """Get user settings"""
+    try:
+        settings_data = load_json_file(SETTINGS_FILE)
+        user_settings = settings_data.get(str(user_id))
+        
+        if user_settings:
+            return jsonify(user_settings)
+        else:
+            # Return default settings
+            default_settings = {
+                "theme": "Dark",
+                "mic_permission": "Always Allow",
+                "cam_permission": "Always Allow",
+                "enable_notifications": True,
+                "sound_notifications": True,
+                "auto_dismiss": True
+            }
+            return jsonify(default_settings)
+    except Exception as e:
+        print(f"Error getting user settings: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@main_bp.route('/users/<int:user_id>/settings', methods=['PUT'])
+def update_user_settings(user_id):
+    """Update user settings"""
+    try:
+        data = request.get_json()
+        settings_data = load_json_file(SETTINGS_FILE)
+        
+        user_key = str(user_id)
+        if user_key not in settings_data:
+            settings_data[user_key] = {}
+        
+        # Update settings
+        settings_data[user_key].update(data)
+        settings_data[user_key]['updated_at'] = datetime.now().isoformat()
+        
+        save_json_file(SETTINGS_FILE, settings_data)
+        
+        print(f"✅ Settings updated for user {user_id}")
+        return jsonify(settings_data[user_key])
+    except Exception as e:
+        print(f"Error updating user settings: {e}")
+        return jsonify({"error": str(e)}), 500
+
 # ============= PET MANAGEMENT =============
 
 @main_bp.route('/pet/<int:user_id>', methods=['GET'])
@@ -295,6 +460,7 @@ def get_pet_data(user_id):
             # Return default pet
             default_pet = {
                 "pet_name": "Buddy",
+                "pet_type": "cat",
                 "pet_mood": "happy",
                 "pet_level": 1,
                 "pet_exp": 0,
@@ -364,6 +530,7 @@ def update_pet_mood(user_id):
         if pet_key not in pets:
             pets[pet_key] = {
                 "pet_name": "Buddy",
+                "pet_type": "cat",
                 "pet_level": 1,
                 "pet_exp": 0
             }

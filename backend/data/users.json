@@ -2,9 +2,12 @@
   "users": [
     {
       "id": 1,
-      "username": "User",
-      "email": "user@example.com",
-      "created_at": "2025-08-29T10:20:16.940629"
+      "username": "Kasun",
+      "email": "chamikakasun33635@gmail.com",
+      "created_at": "2025-08-29T10:20:16.940629",
+      "bio": "software engineer",
+      "hobbies": "coding",
+      "updated_at": "2025-11-15T23:25:32.581203"
     }
   ]
 }

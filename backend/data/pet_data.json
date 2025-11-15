@@ -1,7 +1,16 @@
 {
-  "pet_name": "Buddy",
-  "pet_mood": "happy",
-  "pet_level": 1,
-  "pet_exp": 0,
-  "last_fed": "2025-08-29T10:20:16.943632"
+  "1": {
+    "pet_name": "Buddy",
+    "pet_type": "cat",
+    "pet_mood": "happy",
+    "pet_level": 1,
+    "pet_exp": 0,
+    "happiness": 80,
+    "energy": 65,
+    "hunger": 30,
+    "health": 100,
+    "cleanliness": 85,
+    "intelligence": 50,
+    "last_updated": "2025-11-02T10:20:16.943632"
+  }
 }

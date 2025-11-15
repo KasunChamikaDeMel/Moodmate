@@ -1,0 +1,10 @@
+{
+  "enabled": true,
+  "pet_type": "cat",
+  "duration": 30,
+  "position": "Bottom Right",
+  "sound_enabled": true,
+  "trigger_stress": true,
+  "trigger_angry": true,
+  "trigger_sleepy": true
+}

@@ -1,26 +1,36 @@
+"""
+Settings Page - Functional with Backend Integration
+Pet settings removed (now in notification settings page)
+"""
+
 from PySide6.QtWidgets import (QFrame, QLabel, QPushButton, QVBoxLayout, 
-                              QHBoxLayout, QLineEdit, QComboBox, QCheckBox,
-                              QSizePolicy, QScrollArea, QWidget, QGroupBox, QMessageBox)
-from PySide6.QtCore import Qt
+                              QHBoxLayout, QComboBox, QCheckBox,
+                              QScrollArea, QWidget, QGroupBox, 
+                              QMessageBox)
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QIcon
 from api_client import APIClient
 import json
 import os
 
+
 class SettingsPage(QFrame):
+    # Signals for settings changes
+    theme_changed = Signal(str)
+    pet_changed = Signal(str, str)  # Keep for compatibility
+    
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent_window = parent
         self.settings_file = "settings.json"
+        self.user_id = 1
         self.setup_ui()
         self.load_settings()
     
     def setup_ui(self):
-        self.setStyleSheet("""
-            background-color: #3a404d;
-        """)
+        self.setStyleSheet("background-color: #3a404d;")
         
-        # Create scroll area for settings
+        # Create scroll area
         scroll = QScrollArea(self)
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet("""
@@ -29,25 +39,29 @@ class SettingsPage(QFrame):
             }
             QScrollBar:vertical {
                 background: #424758;
-                width: 8px;
+                width: 10px;
+                border-radius: 5px;
             }
             QScrollBar::handle:vertical {
                 background: #6c5ce7;
                 min-height: 30px;
-                border-radius: 4px;
+                border-radius: 5px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #7d6ee8;
             }
         """)
         
         content = QWidget()
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(20)
         
         # Title
-        title = QLabel("Settings")
+        title = QLabel("⚙️ Settings")
         title.setStyleSheet("""
             QLabel {
-                font-size: 26px;
+                font-size: 28px;
                 color: white;
                 font-weight: bold;
                 padding-bottom: 10px;
@@ -55,167 +69,144 @@ class SettingsPage(QFrame):
         """)
         layout.addWidget(title)
         
-        # Pet Settings Section
-        pet_group = self.create_settings_group("Pet Settings", ":/icons/pet.png")
-        pet_layout = pet_group.layout()
-        
-        pet_name_label = QLabel("Pet Name:")
-        pet_name_label.setStyleSheet("font-size: 14px; color: #cccccc;")
-        
-        self.pet_name_edit = QLineEdit()
-        self.pet_name_edit.setPlaceholderText("Enter your pet's name")
-        self.pet_name_edit.setStyleSheet("""
-            QLineEdit {
-                background-color: #5c6378;
-                color: white;
-                border: 1px solid #6c748c;
-                border-radius: 6px;
-                padding: 8px 12px;
-                font-size: 14px;
-            }
-            QLineEdit:focus {
-                border: 1px solid #6c5ce7;
-            }
-        """)
-        
-        pet_layout.addWidget(pet_name_label)
-        pet_layout.addWidget(self.pet_name_edit)
-        layout.addWidget(pet_group)
-        
-        # Appearance Settings Section
-        appearance_group = self.create_settings_group("Appearance", ":/icons/paint.png")
+        # Appearance Settings
+        appearance_group = self.create_group("🎨 Appearance")
         appearance_layout = appearance_group.layout()
         
         theme_label = QLabel("Theme:")
         theme_label.setStyleSheet("font-size: 14px; color: #cccccc;")
         
         self.theme_combo = QComboBox()
-        self.theme_combo.addItems(["Dark", "Light", "Blue", "Purple", "System"])
+        self.theme_combo.addItems(["Dark", "Light", "Blue", "Purple"])
         self.theme_combo.setStyleSheet("""
             QComboBox {
                 background-color: #5c6378;
                 color: white;
                 border: 1px solid #6c748c;
                 border-radius: 6px;
-                padding: 8px 12px;
+                padding: 10px 12px;
                 font-size: 14px;
             }
             QComboBox::drop-down {
-                width: 30px;
                 border: none;
+                width: 30px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 6px solid white;
+                margin-right: 10px;
             }
             QComboBox:hover {
-                border: 1px solid #6c5ce7;
+                border: 2px solid #6c5ce7;
             }
             QComboBox QAbstractItemView {
-                background-color: #5c6378;
+                background-color: #424758;
                 color: white;
                 selection-background-color: #6c5ce7;
+                border: 1px solid #6c748c;
+                border-radius: 4px;
+                padding: 5px;
+            }
+            QComboBox QAbstractItemView::item {
+                padding: 8px;
+                border-radius: 4px;
+            }
+            QComboBox QAbstractItemView::item:hover {
+                background-color: #5c6378;
             }
         """)
+        self.theme_combo.currentTextChanged.connect(self.on_theme_changed)
         
         appearance_layout.addWidget(theme_label)
         appearance_layout.addWidget(self.theme_combo)
         layout.addWidget(appearance_group)
         
-        # Device Permissions Section
-        permissions_group = self.create_settings_group("Device Permissions", ":/icons/permissions.png")
+        # Device Permissions
+        permissions_group = self.create_group("🔐 Device Permissions")
         permissions_layout = permissions_group.layout()
         
-        # Microphone Permission
-        mic_layout = QHBoxLayout()
-        mic_label = QLabel("Microphone Access:")
-        mic_label.setStyleSheet("font-size: 14px; color: #cccccc;")
+        perm_desc = QLabel("Manage device access permissions for emotion detection:")
+        perm_desc.setStyleSheet("font-size: 13px; color: #b5b8bd; padding-bottom: 5px;")
+        permissions_layout.addWidget(perm_desc)
         
-        self.mic_combo = QComboBox()
-        self.mic_combo.addItems(["Allow", "Ask Every Time", "Deny"])
-        self.mic_combo.setStyleSheet("""
-            QComboBox {
-                background-color: #5c6378;
-                color: white;
-                border: 1px solid #6c748c;
-                border-radius: 6px;
-                padding: 8px 12px;
-                font-size: 14px;
-                min-width: 150px;
-            }
-            QComboBox:hover {
-                border: 1px solid #6c5ce7;
-            }
-        """)
+        # Microphone
+        mic_container = self.create_permission_row(
+            "🎤 Microphone Access",
+            "Required for voice-based emotion detection"
+        )
+        self.mic_combo = mic_container.findChild(QComboBox)
+        permissions_layout.addWidget(mic_container)
         
-        mic_layout.addWidget(mic_label)
-        mic_layout.addWidget(self.mic_combo)
-        mic_layout.addStretch()
-        permissions_layout.addLayout(mic_layout)
-        
-        # Camera Permission
-        cam_layout = QHBoxLayout()
-        cam_label = QLabel("Camera Access:")
-        cam_label.setStyleSheet("font-size: 14px; color: #cccccc;")
-        
-        self.cam_combo = QComboBox()
-        self.cam_combo.addItems(["Allow", "Ask Every Time", "Deny"])
-        self.cam_combo.setStyleSheet("""
-            QComboBox {
-                background-color: #5c6378;
-                color: white;
-                border: 1px solid #6c748c;
-                border-radius: 6px;
-                padding: 8px 12px;
-                font-size: 14px;
-                min-width: 150px;
-            }
-            QComboBox:hover {
-                border: 1px solid #6c5ce7;
-            }
-        """)
-        
-        cam_layout.addWidget(cam_label)
-        cam_layout.addWidget(self.cam_combo)
-        cam_layout.addStretch()
-        permissions_layout.addLayout(cam_layout)
+        # Camera
+        cam_container = self.create_permission_row(
+            "📷 Camera Access",
+            "Required for facial expression emotion detection"
+        )
+        self.cam_combo = cam_container.findChild(QComboBox)
+        permissions_layout.addWidget(cam_container)
         
         layout.addWidget(permissions_group)
         
-        # Notifications Settings Section
-        notif_group = self.create_settings_group("Notifications", ":/icons/bell.png")
+        # Notifications Settings
+        notif_group = self.create_group("🔔 Notification Preferences")
         notif_layout = notif_group.layout()
         
-        self.notif_check = QCheckBox("Enable notifications")
-        self.notif_check.setChecked(True)
-        self.notif_check.setStyleSheet("""
-            QCheckBox {
-                color: white;
-                font-size: 14px;
-                spacing: 8px;
-            }
-            QCheckBox::indicator {
-                width: 18px;
-                height: 18px;
-            }
-        """)
+        notif_desc = QLabel("Configure how you receive emotion notifications:")
+        notif_desc.setStyleSheet("font-size: 13px; color: #b5b8bd; padding-bottom: 5px;")
+        notif_layout.addWidget(notif_desc)
         
-        self.sound_check = QCheckBox("Enable notification sounds")
-        self.sound_check.setChecked(True)
-        self.sound_check.setStyleSheet("""
-            QCheckBox {
-                color: white;
-                font-size: 14px;
-                spacing: 8px;
-            }
-        """)
+        # Enable notifications checkbox
+        notif_container = self.create_checkbox(
+            "Enable emotion notifications",
+            "Show popup notifications when negative emotions are detected"
+        )
+        self.notif_check = notif_container.checkbox_widget
+        self.notif_check.stateChanged.connect(self.on_notification_toggle)
         
-        notif_layout.addWidget(self.notif_check)
-        notif_layout.addWidget(self.sound_check)
+        # Sound checkbox
+        sound_container = self.create_checkbox(
+            "Enable notification sounds",
+            "Play audio alerts with notifications"
+        )
+        self.sound_check = sound_container.checkbox_widget
+        
+        # Auto-dismiss checkbox
+        auto_dismiss_container = self.create_checkbox(
+            "Auto-dismiss notifications",
+            "Automatically close notifications after 15 seconds"
+        )
+        self.auto_dismiss_check = auto_dismiss_container.checkbox_widget
+        
+        notif_layout.addWidget(notif_container)
+        notif_layout.addWidget(sound_container)
+        notif_layout.addWidget(auto_dismiss_container)
+        
         layout.addWidget(notif_group)
         
-        # Save Button
+        # Action Buttons
         button_layout = QHBoxLayout()
-        button_layout.addStretch()
+        button_layout.setSpacing(15)
         
-        save_button = QPushButton("Save Settings")
-        save_button.setIcon(QIcon(":/icons/save.png"))
+        reset_button = QPushButton("🔄 Reset to Defaults")
+        reset_button.clicked.connect(self.reset_to_defaults)
+        reset_button.setStyleSheet("""
+            QPushButton {
+                background-color: #5c6378;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 12px 24px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #6c748c;
+            }
+        """)
+        
+        save_button = QPushButton("💾 Save Settings")
         save_button.clicked.connect(self.save_settings)
         save_button.setStyleSheet("""
             QPushButton {
@@ -223,10 +214,9 @@ class SettingsPage(QFrame):
                 color: white;
                 border: none;
                 border-radius: 8px;
-                padding: 10px 24px;
-                font-size: 16px;
+                padding: 12px 32px;
+                font-size: 15px;
                 font-weight: bold;
-                min-width: 180px;
             }
             QPushButton:hover {
                 background-color: #7d6ee8;
@@ -236,7 +226,10 @@ class SettingsPage(QFrame):
             }
         """)
         
+        button_layout.addStretch()
+        button_layout.addWidget(reset_button)
         button_layout.addWidget(save_button)
+        
         layout.addLayout(button_layout)
         layout.addStretch()
         
@@ -246,122 +239,300 @@ class SettingsPage(QFrame):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(scroll)
     
-    def create_settings_group(self, title, icon_path):
+    def create_group(self, title):
+        """Create a settings group with title"""
         group = QGroupBox()
         group.setStyleSheet("""
             QGroupBox {
                 background-color: #424758;
                 border: 1px solid #5c6378;
                 border-radius: 12px;
-                padding: 15px;
-                margin-top: 5px;
-                color: white;
-                font-size: 16px;
-                font-weight: bold;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px;
+                padding: 20px;
+                margin-top: 10px;
             }
         """)
         
         layout = QVBoxLayout(group)
         layout.setSpacing(15)
         
-        # Custom title with icon
-        title_layout = QHBoxLayout()
-        title_layout.setContentsMargins(0, 0, 0, 5)
-        
-        icon_label = QLabel()
-        try:
-            icon_label.setPixmap(QIcon(icon_path).pixmap(20, 20))
-        except:
-            pass  # Icon might not exist
-        
         title_label = QLabel(title)
-        title_label.setStyleSheet("font-weight: bold;")
+        title_label.setStyleSheet("""
+            QLabel {
+                font-size: 18px;
+                color: white;
+                font-weight: bold;
+                border: none;
+                padding: 0;
+                margin-bottom: 5px;
+            }
+        """)
+        layout.addWidget(title_label)
         
-        title_layout.addWidget(icon_label)
-        title_layout.addWidget(title_label)
-        title_layout.addStretch()
-        
-        layout.addLayout(title_layout)
         return group
     
+    def create_permission_row(self, title, description):
+        """Create a permission setting row"""
+        container = QWidget()
+        container.setStyleSheet("""
+            QWidget {
+                background-color: #5c6378;
+                border-radius: 8px;
+                padding: 12px;
+                margin: 5px 0px;
+            }
+        """)
+        layout = QVBoxLayout(container)
+        layout.setSpacing(8)
+        
+        # Title and combo on same row
+        top_layout = QHBoxLayout()
+        
+        title_label = QLabel(title)
+        title_label.setStyleSheet("font-size: 14px; color: white; font-weight: bold;")
+        
+        combo = QComboBox()
+        combo.addItems(["Always Allow", "Ask Every Time", "Deny"])
+        combo.setStyleSheet("""
+            QComboBox {
+                background-color: #424758;
+                color: white;
+                border: 1px solid #6c748c;
+                border-radius: 4px;
+                padding: 6px 10px;
+                font-size: 13px;
+                min-width: 150px;
+            }
+            QComboBox:hover {
+                border: 1px solid #6c5ce7;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #424758;
+                color: white;
+                selection-background-color: #6c5ce7;
+            }
+        """)
+        
+        top_layout.addWidget(title_label)
+        top_layout.addStretch()
+        top_layout.addWidget(combo)
+        
+        # Description
+        desc_label = QLabel(description)
+        desc_label.setWordWrap(True)
+        desc_label.setStyleSheet("font-size: 12px; color: #b5b8bd;")
+        
+        layout.addLayout(top_layout)
+        layout.addWidget(desc_label)
+        
+        return container
+    
+    def create_checkbox(self, text, description):
+        """Create a styled checkbox with description"""
+        checkbox = QCheckBox(text)
+        checkbox.setStyleSheet("""
+            QCheckBox {
+                color: white;
+                font-size: 14px;
+                spacing: 10px;
+                font-weight: bold;
+            }
+            QCheckBox::indicator {
+                width: 20px;
+                height: 20px;
+                border-radius: 4px;
+                border: 2px solid #6c748c;
+                background-color: #5c6378;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #6c5ce7;
+                border-color: #6c5ce7;
+            }
+            QCheckBox::indicator:hover {
+                border-color: #7d6ee8;
+            }
+        """)
+        
+        desc_label = QLabel(description)
+        desc_label.setWordWrap(True)
+        desc_label.setStyleSheet("font-size: 12px; color: #b5b8bd; padding-left: 30px;")
+        
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 5, 0, 5)
+        layout.setSpacing(4)
+        layout.addWidget(checkbox)
+        layout.addWidget(desc_label)
+        
+        container.checkbox_widget = checkbox
+        
+        return container
+    
     def load_settings(self):
-        """Load settings from local file"""
-        try:
-            if os.path.exists(self.settings_file):
+        """Load settings from file and backend"""
+        settings = {}
+        
+        # Load from local file
+        if os.path.exists(self.settings_file):
+            try:
                 with open(self.settings_file, 'r') as f:
                     settings = json.load(f)
-                
-                self.pet_name_edit.setText(settings.get('pet_name', 'Buddy'))
-                self.theme_combo.setCurrentText(settings.get('theme', 'Dark'))
-                self.mic_combo.setCurrentText(settings.get('mic_permission', 'Allow'))
-                self.cam_combo.setCurrentText(settings.get('cam_permission', 'Allow'))
-                self.notif_check.setChecked(settings.get('enable_notifications', True))
-                self.sound_check.setChecked(settings.get('sound_notifications', True))
-                
                 print("✅ Settings loaded from file")
-            else:
-                # Load from backend
-                self.load_from_backend()
-        except Exception as e:
-            print(f"Error loading settings: {e}")
-            self.load_from_backend()
-    
-    def load_from_backend(self):
-        """Load pet name from backend"""
+            except Exception as e:
+                print(f"Error loading settings file: {e}")
+        
+        # Load from backend
         try:
-            result = APIClient.get_pet_data(1)
+            result = APIClient.get_user_settings(self.user_id)
             if 'error' not in result:
-                self.pet_name_edit.setText(result.get('pet_name', 'Buddy'))
+                settings.update(result)
+                print("✅ Settings loaded from backend")
         except Exception as e:
             print(f"Error loading from backend: {e}")
-            self.pet_name_edit.setText("Buddy")
+        
+        # Apply settings to UI
+        self.theme_combo.setCurrentText(settings.get('theme', 'Dark'))
+        self.mic_combo.setCurrentText(settings.get('mic_permission', 'Always Allow'))
+        self.cam_combo.setCurrentText(settings.get('cam_permission', 'Always Allow'))
+        self.notif_check.setChecked(settings.get('enable_notifications', True))
+        self.sound_check.setChecked(settings.get('sound_notifications', True))
+        self.auto_dismiss_check.setChecked(settings.get('auto_dismiss', True))
+    
+    def on_theme_changed(self, theme_name):
+        """Handle theme change immediately"""
+        self.apply_theme(theme_name)
+        print(f"🎨 Theme preview: {theme_name}")
+    
+    def on_notification_toggle(self, state):
+        """Handle notification enable/disable"""
+        enabled = bool(state)
+        self.sound_check.setEnabled(enabled)
+        self.auto_dismiss_check.setEnabled(enabled)
+        
+        # Update parent window immediately
+        if self.parent_window and hasattr(self.parent_window, 'notifications_enabled'):
+            self.parent_window.notifications_enabled = enabled
+            print(f"🔔 Notifications {'enabled' if enabled else 'disabled'}")
     
     def save_settings(self):
-        """Save settings locally and update backend"""
+        """Save all settings to file and backend"""
         try:
-            # Get current settings
+            # Collect settings
             settings = {
-                'pet_name': self.pet_name_edit.text().strip(),
                 'theme': self.theme_combo.currentText(),
                 'mic_permission': self.mic_combo.currentText(),
                 'cam_permission': self.cam_combo.currentText(),
                 'enable_notifications': self.notif_check.isChecked(),
-                'sound_notifications': self.sound_check.isChecked()
+                'sound_notifications': self.sound_check.isChecked(),
+                'auto_dismiss': self.auto_dismiss_check.isChecked()
             }
             
-            # Save locally
+            # Save to local file
             with open(self.settings_file, 'w') as f:
                 json.dump(settings, f, indent=2)
+            print("✅ Settings saved to file")
             
-            # Update pet name in backend
-            pet_name = settings['pet_name']
-            if pet_name:
-                result = APIClient.update_pet_data(1, {'pet_name': pet_name})
+            # Save to backend
+            try:
+                result = APIClient.update_user_settings(self.user_id, settings)
                 
                 if 'error' not in result:
-                    # Update parent window
-                    if hasattr(self.parent_window, 'pet_name'):
-                        self.parent_window.pet_name = pet_name
-                        if hasattr(self.parent_window, 'pet_page'):
-                            self.parent_window.pet_page.pet_name = pet_name
-                            self.parent_window.pet_page.update_mood()
+                    print("✅ Settings saved to backend")
                     
-                    QMessageBox.information(self, "Success", "Settings saved successfully!")
+                    # Update parent window
+                    if self.parent_window:
+                        if hasattr(self.parent_window, 'notifications_enabled'):
+                            self.parent_window.notifications_enabled = settings['enable_notifications']
+                        if hasattr(self.parent_window, 'notification_sounds'):
+                            self.parent_window.notification_sounds = settings['sound_notifications']
+                    
+                    # Apply theme
+                    self.apply_theme(settings['theme'])
+                    
+                    QMessageBox.information(self, "✅ Success", 
+                        f"Settings saved successfully!\n\n"
+                        f"Theme: {settings['theme']}\n"
+                        f"Notifications: {'Enabled' if settings['enable_notifications'] else 'Disabled'}\n"
+                        f"Microphone: {settings['mic_permission']}\n"
+                        f"Camera: {settings['cam_permission']}")
                 else:
-                    QMessageBox.warning(self, "Partial Success", 
-                                       "Settings saved locally, but couldn't update backend.\n" + 
-                                       f"Error: {result['error']}")
-            else:
-                QMessageBox.information(self, "Success", "Settings saved successfully!")
-                
+                    raise Exception(result['error'])
+                    
+            except Exception as e:
+                # Save succeeded locally but not to backend
+                QMessageBox.warning(self, "⚠️ Partial Success",
+                    f"Settings saved locally, but backend update failed.\n\n"
+                    f"Error: {str(e)}\n\n"
+                    f"Settings will still work locally.")
+                print(f"⚠️ Backend save failed: {e}")
+                    
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save settings: {str(e)}")
+            QMessageBox.critical(self, "❌ Error", 
+                f"Failed to save settings:\n{str(e)}")
+            print(f"❌ Save settings error: {e}")
     
-    def update_content(self, pet_name):
-        """Update with pet name from parent"""
-        self.pet_name_edit.setText(pet_name)
+    def apply_theme(self, theme_name):
+        """Apply selected theme"""
+        themes = {
+            "Dark": {
+                "background": "#3a404d",
+                "card": "#424758",
+                "accent": "#6c5ce7",
+                "text": "#ffffff"
+            },
+            "Light": {
+                "background": "#f0f0f0",
+                "card": "#ffffff",
+                "accent": "#6c5ce7",
+                "text": "#2c3e50"
+            },
+            "Blue": {
+                "background": "#2c3e50",
+                "card": "#34495e",
+                "accent": "#3498db",
+                "text": "#ecf0f1"
+            },
+            "Purple": {
+                "background": "#2d1b4e",
+                "card": "#3d2b5e",
+                "accent": "#9b59b6",
+                "text": "#ffffff"
+            }
+        }
+        
+        if theme_name in themes:
+            theme = themes[theme_name]
+            
+            # Update main frame background
+            self.setStyleSheet(f"background-color: {theme['background']};")
+            
+            print(f"🎨 Theme applied: {theme_name}")
+            self.theme_changed.emit(theme_name)
+    
+    def reset_to_defaults(self):
+        """Reset all settings to defaults"""
+        reply = QMessageBox.question(
+            self, 
+            "🔄 Reset Settings",
+            "Are you sure you want to reset all settings to defaults?\n\n"
+            "This will reset:\n"
+            "• Theme to Dark\n"
+            "• All permissions to Always Allow\n"
+            "• Enable all notifications",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self.theme_combo.setCurrentText("Dark")
+            self.mic_combo.setCurrentText("Always Allow")
+            self.cam_combo.setCurrentText("Always Allow")
+            self.notif_check.setChecked(True)
+            self.sound_check.setChecked(True)
+            self.auto_dismiss_check.setChecked(True)
+            
+            QMessageBox.information(self, "✅ Reset Complete", 
+                "Settings have been reset to defaults.\n\n"
+                "Click 'Save Settings' to apply changes.")
+    
+    def update_content(self, pet_name=None):
+        """Compatibility method - settings page doesn't use pet name anymore"""
+        pass

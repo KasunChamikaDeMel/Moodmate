@@ -1,8 +1,8 @@
 {
-  "pet_name": "Buddy",
   "theme": "Dark",
-  "mic_permission": "Allow",
-  "cam_permission": "Allow",
+  "mic_permission": "Always Allow",
+  "cam_permission": "Always Allow",
   "enable_notifications": true,
-  "sound_notifications": true
+  "sound_notifications": true,
+  "auto_dismiss": true
 }

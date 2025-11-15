@@ -1,8 +1,3 @@
-"""
-API Client for MoodMate Frontend
-Handles all communication with the Flask backend
-"""
-
 import requests
 import json
 from typing import Dict, List, Optional, Any
@@ -12,14 +7,18 @@ class APIClient:
     """Centralized API client for frontend-backend communication"""
     
     BASE_URL = "http://localhost:5000/api"
-    TIMEOUT = 10  # seconds
+    TIMEOUT = 10
     
     @staticmethod
     def _handle_response(response):
         """Handle API response and errors"""
         try:
-            if response.status_code == 200:
+            if response.status_code in [200, 201]:
                 return response.json()
+            elif response.status_code == 401:
+                return {"error": "Invalid credentials"}
+            elif response.status_code == 400:
+                return {"error": response.json().get('error', 'Bad request')}
             else:
                 return {"error": f"HTTP {response.status_code}: {response.text}"}
         except requests.exceptions.JSONDecodeError:
@@ -52,6 +51,25 @@ class APIClient:
         except Exception as e:
             return {"error": f"Request failed: {str(e)}"}
     
+    # ==================== AUTHENTICATION ====================
+    
+    @staticmethod
+    def register(username: str, email: str, password_hash: str) -> Dict:
+        """Register new user"""
+        return APIClient._make_request("POST", "/auth/register", {
+            "username": username,
+            "email": email,
+            "password": password_hash
+        })
+    
+    @staticmethod
+    def login(email: str, password_hash: str) -> Dict:
+        """User login"""
+        return APIClient._make_request("POST", "/auth/login", {
+            "email": email,
+            "password": password_hash
+        })
+    
     # ==================== USER MANAGEMENT ====================
     
     @staticmethod
@@ -64,13 +82,28 @@ class APIClient:
         """Update user profile"""
         return APIClient._make_request("PUT", f"/user/{user_id}", data)
     
+    # ==================== USER SETTINGS ====================
+    
     @staticmethod
-    def login(username: str, password: str) -> Dict:
-        """User login (placeholder for future authentication)"""
-        return APIClient._make_request("POST", "/auth/login", {
-            "username": username,
-            "password": password
-        })
+    def get_user_settings(user_id: int) -> Dict:
+        """Get user settings from backend"""
+        result = APIClient._make_request("GET", f"/users/{user_id}/settings")
+        if 'error' in result:
+            # Return defaults if error
+            return {
+                'theme': 'Dark',
+                'mic_permission': 'Always Allow',
+                'cam_permission': 'Always Allow',
+                'enable_notifications': True,
+                'sound_notifications': True,
+                'auto_dismiss': True
+            }
+        return result
+    
+    @staticmethod
+    def update_user_settings(user_id: int, settings: Dict) -> Dict:
+        """Update user settings in backend"""
+        return APIClient._make_request("PUT", f"/users/{user_id}/settings", settings)
     
     # ==================== EMOTION DETECTION ====================
     
@@ -102,7 +135,7 @@ class APIClient:
         """Get mood history for a user"""
         result = APIClient._make_request("GET", f"/mood_history/{user_id}")
         if isinstance(result, dict) and 'error' in result:
-            return result
+            return []
         return result if isinstance(result, list) else []
     
     @staticmethod
@@ -156,3 +189,23 @@ class APIClient:
         """Test if backend is reachable"""
         result = APIClient.health_check()
         return not ('error' in result)
+
+
+# Test function
+def test_api_client():
+    """Test API client functionality"""
+    print("Testing API Client...")
+    print(f"Backend URL: {APIClient.BASE_URL}")
+    
+    # Test connection
+    if APIClient.test_connection():
+        print("✅ Backend connection successful!")
+    else:
+        print("❌ Backend connection failed!")
+        return
+    
+    print("\n✅ API Client test complete!")
+
+
+if __name__ == "__main__":
+    test_api_client()

@@ -1,21 +1,25 @@
-"""
-MoodMate Main Application with Backend Integration
-"""
 
-from datetime import datetime, timedelta
+
+from datetime import datetime
 import sys
-import random
+import json
+import os
 from PySide6.QtWidgets import QMainWindow, QStackedWidget, QMessageBox, QApplication
 from PySide6.QtCore import QTimer
 from ui_sidebar import Ui_MainWindow
 from home import HomePage
-from pet import PetPage
-from detection import DetectionPage
 from history import HistoryPage
-from settings import SettingsPage
 from profile_1 import ProfilePage
 from help import HelpPage
 from api_client import APIClient
+from auth import AuthenticationWidget
+from theme_manager import ThemeManager
+
+# Import notification components
+from notification_widget import WindowsToastNotification
+from notification_settings import NotificationSettingsPage
+from settings import SettingsPage
+from pet import PetPage
 
 
 class MoodMateApp(QMainWindow, Ui_MainWindow):
@@ -30,19 +34,28 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
         self.pet_mood = "happy"
         self.username = "User"
         self.pet_name = "Buddy"
+        self.pet_type = "cat"
         self.user_id = 1
+        
+        # Settings
+        self.notifications_enabled = True
+        self.notification_sounds = True
+        
+        # Create Windows-style notification window
+        self.notification_window = WindowsToastNotification(self)
+        self.notification_window.action_clicked.connect(self.handle_notification_action)
         
         # Check backend connection
         self.check_backend_connection()
         
-        # Load initial data from backend
+        # Load initial data from backend and settings
+        self.load_settings()
         self.load_user_data()
         self.load_pet_data()
         
-        # Create page instances
         self.home_page = HomePage(self)
-        self.pet_page = PetPage(self)
-        self.detection_page = DetectionPage(self)
+        self.pet_page = PetPage(self) 
+        self.notification_settings_page = NotificationSettingsPage(self)
         self.history_page = HistoryPage(self)
         self.settings_page = SettingsPage(self)
         self.profile_page = ProfilePage(self)
@@ -51,21 +64,121 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
         # Add pages to stacked widget
         self.stackedWidget.addWidget(self.home_page)
         self.stackedWidget.addWidget(self.pet_page)
-        self.stackedWidget.addWidget(self.detection_page)
+        self.stackedWidget.addWidget(self.notification_settings_page)
         self.stackedWidget.addWidget(self.history_page)
         self.stackedWidget.addWidget(self.settings_page)
         self.stackedWidget.addWidget(self.profile_page)
         self.stackedWidget.addWidget(self.help_page)
         
+        # Connect settings signals
+        self.settings_page.pet_changed.connect(self.on_pet_changed)
+        self.settings_page.theme_changed.connect(self.on_theme_changed)
+        self.notification_settings_page.settings_changed.connect(self.on_notification_settings_changed)
+        
         # Setup sidebar
         self.icon_name_widgect.setHidden(True)
         self.connect_navigation()
+        
+        # Connect home page emotion detection to notifications
+        self.connect_emotion_signals()
         
         # Initialize pages with default values
         self.update_all_pages()
         
         # Setup timers
         self.setup_timers()
+    
+    def load_settings(self):
+        """Load app settings from file"""
+        settings_file = "settings.json"
+        if os.path.exists(settings_file):
+            try:
+                with open(settings_file, 'r') as f:
+                    settings = json.load(f)
+                self.notifications_enabled = settings.get('enable_notifications', True)
+                self.notification_sounds = settings.get('sound_notifications', True)
+                self.pet_type = settings.get('pet_type', 'cat')
+                print(f"✅ Settings loaded: Notifications={self.notifications_enabled}, Pet={self.pet_type}")
+            except Exception as e:
+                print(f"Error loading settings: {e}")
+    
+    def connect_emotion_signals(self):
+        """Connect emotion detection to notification system"""
+        original_update_emotion = self.home_page.update_emotion
+        
+        def wrapped_update_emotion(emotion):
+            # Call original method
+            original_update_emotion(emotion)
+            
+            # Show notification for negative emotions
+            if self.notifications_enabled:
+                emotion_lower = emotion.lower()
+                if emotion_lower in ['stress', 'angry', 'sleepy', 'sleep', 'anger']:
+                    self.show_emotion_notification(emotion)
+        
+        self.home_page.update_emotion = wrapped_update_emotion
+    
+    def show_emotion_notification(self, emotion):
+        """Show Windows-style toast notification for detected emotion"""
+        emotion_map = {
+            'sleep': 'sleepy',
+            'anger': 'angry'
+        }
+        
+        normalized_emotion = emotion_map.get(emotion.lower(), emotion.lower())
+        
+        # Only show for stress, angry, sleepy
+        if normalized_emotion in ['stress', 'angry', 'sleepy']:
+            # Set the pet type in notification
+            self.notification_window.set_pet_type(self.pet_type)
+            
+            # Show notification
+            self.notification_window.show_notification(normalized_emotion, "detection")
+            
+            print(f"🔔 Notification shown for: {normalized_emotion}")
+    
+    def handle_notification_action(self, action):
+        """Handle notification button clicks"""
+        if action == "better":
+            print("✅ User feeling better!")
+            try:
+                APIClient.add_mood_entry(1, "improved", "user_action")
+            except:
+                pass
+        elif action == "help":
+            print("ℹ️ User wants more help")
+            self.switch_page(self.help_page)
+    
+    def on_pet_changed(self, pet_name, pet_type):
+        """Handle pet changes from settings"""
+        self.pet_name = pet_name
+        self.pet_type = pet_type
+        
+        # Update notification window
+        self.notification_window.set_pet_type(pet_type)
+        
+        # Update pet page
+        if hasattr(self, 'pet_page'):
+            self.pet_page.pet_name = pet_name
+            self.pet_page.pet_type = pet_type
+            self.pet_page.update_ui()
+        
+        # Update home page
+        if hasattr(self, 'home_page'):
+            self.home_page.update_username(self.username)
+        
+        print(f"🐾 Pet updated: {pet_name} ({pet_type})")
+    
+    def on_theme_changed(self, theme_name):
+        """Handle theme changes"""
+        print(f"🎨 Theme changed to: {theme_name}")
+    
+    def on_notification_settings_changed(self, settings):
+        """Handle notification settings changes"""
+        self.notifications_enabled = settings.get('enabled', True)
+        self.pet_type = settings.get('pet_type', 'cat')
+        self.notification_window.set_pet_type(self.pet_type)
+        print(f"🔔 Notification settings updated: {settings}")
     
     def check_backend_connection(self):
         """Check if backend is running"""
@@ -86,6 +199,7 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
             result = APIClient.get_user(self.user_id)
             if 'error' not in result:
                 self.username = result.get('username', 'User')
+                print(f"✅ Loaded user: {self.username}")
         except Exception as e:
             print(f"Failed to load user data: {e}")
     
@@ -95,7 +209,9 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
             result = APIClient.get_pet_data(self.user_id)
             if 'error' not in result:
                 self.pet_name = result.get('pet_name', 'Buddy')
+                self.pet_type = result.get('pet_type', 'cat')
                 self.pet_mood = result.get('pet_mood', 'happy')
+                print(f"✅ Loaded pet: {self.pet_name} ({self.pet_type}) - mood: {self.pet_mood}")
         except Exception as e:
             print(f"Failed to load pet data: {e}")
     
@@ -106,8 +222,9 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
             self.home_2: self.home_page,
             self.pet_1: self.pet_page,
             self.pet_2: self.pet_page,
-            self.startdetection_1: self.detection_page,
-            self.startdetection_2: self.detection_page,
+            # NOTIFICATION SETTINGS PAGE (replaces detection)
+            self.startdetection_1: self.notification_settings_page,
+            self.startdetection_2: self.notification_settings_page,
             self.history_1: self.history_page,
             self.history_2: self.history_page,
             self.settings_1: self.settings_page,
@@ -136,11 +253,17 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
             self.pet_page.refresh_data()
         elif page == self.profile_page:
             self.profile_page.load_user_data()
+        elif page == self.settings_page:
+            self.settings_page.load_settings()
+        elif page == self.notification_settings_page:
+            self.notification_settings_page.load_settings()
     
     def update_all_pages(self):
         """Update all pages with current data"""
         self.home_page.update_content(self.username, self.current_mood, self.pet_name)
-        self.pet_page.update_content(self.pet_name, self.pet_mood)
+        self.pet_page.pet_name = self.pet_name
+        self.pet_page.pet_type = self.pet_type
+        self.pet_page.update_ui()
         self.settings_page.update_content(self.pet_name)
         self.profile_page.update_content(self.username)
     
@@ -153,21 +276,22 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
     def animate_pet(self):
         """Update pet animation on pet page"""
         if self.stackedWidget.currentWidget() == self.pet_page:
-            self.pet_page.animate()
+            pass
     
     def closeEvent(self, event):
         """Handle application close"""
-        # Cleanup resources
         if hasattr(self.home_page, 'cleanup'):
             self.home_page.cleanup()
+        
+        if hasattr(self, 'notification_window'):
+            self.notification_window.close()
+        
         event.accept()
 
 
 def main():
     """Main entry point"""
     app = QApplication(sys.argv)
-    
-    # Set application style
     app.setStyle('Fusion')
     
     window = MoodMateApp()

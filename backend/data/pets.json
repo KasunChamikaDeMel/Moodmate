@@ -6,12 +6,18 @@
     "mood": "angry",
     "level": 1,
     "created_at": 1760800223.5383365,
-    "last_updated": "2025-11-02T16:12:06.787316",
-    "pet_mood": "angry",
-    "hunger": 0,
+    "last_updated": "2025-11-15T22:26:58.948093",
+    "pet_mood": "sad",
+    "hunger": 5,
     "happiness": 100,
-    "pet_exp": 20,
+    "pet_exp": 67,
     "last_fed": "2025-11-02T14:10:20.760093",
-    "pet_name": "Buddy"
+    "pet_name": "Tommy",
+    "pet_type": "bunny",
+    "pet_level": 1,
+    "energy": 15,
+    "health": 100,
+    "cleanliness": 85,
+    "intelligence": 65
   }
 }
