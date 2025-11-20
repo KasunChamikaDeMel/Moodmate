@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "pet_type": "cat",
+  "pet_type": "dog",
   "duration": 30,
   "position": "Bottom Right",
   "sound_enabled": true,

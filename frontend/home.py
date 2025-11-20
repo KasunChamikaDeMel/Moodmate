@@ -1,7 +1,9 @@
+import sys
 from PySide6.QtWidgets import (QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, 
-                              QLineEdit, QSizePolicy, QSpacerItem, QMessageBox)
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QIcon
+                              QLineEdit, QSizePolicy, QSpacerItem, QMessageBox, QProgressBar,
+                              QGraphicsDropShadowEffect, QWidget)
+from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QSize
+from PySide6.QtGui import QIcon, QFont, QColor
 import cv2
 import base64
 import pyaudio
@@ -9,7 +11,237 @@ import wave
 import io
 from datetime import datetime, timedelta
 from collections import Counter
+import threading
+from collections import deque
+import time
+
+# --- Use the REAL APIClient ---
 from api_client import APIClient
+
+# --- YOUR REAL EMOTION_FUSION.PY CODE ---
+# (Included here as it was in your file)
+
+class EmotionFusion:
+    """Intelligent emotion fusion from multiple modalities"""
+    
+    WEIGHTS = {
+        'face': 0.45,
+        'voice': 0.40,
+        'text': 0.15
+    }
+    
+    def __init__(self, temporal_window=5):
+        self.temporal_window = temporal_window
+        self.recent_emotions = {
+            'face': deque(maxlen=temporal_window),
+            'voice': deque(maxlen=temporal_window),
+            'text': deque(maxlen=temporal_window)
+        }
+        self.last_fused_emotion = "neutral"
+        self.emotion_scores = {}
+        self.lock = threading.Lock()
+    
+    # --- !!! LOGIC FIX 1: Normalize to ONLY your 4 emotions !!! ---
+    def normalize_emotion(self, emotion):
+        """
+        Normalize emotion name variations to ONLY the 4 target emotions:
+        Neutral, Stress, Sleep, Anger
+        """
+        emotion = emotion.lower().strip()
+        
+        # 1. Direct mappings for your target emotions
+        if emotion in ['stress', 'stressed', 'fear']:
+            return 'stress'
+        if emotion in ['angry', 'anger']:
+            return 'angry'
+        if emotion in ['sleep', 'sleepy', 'sleeping', 'tired']:
+            return 'sleep' # Standardize to 'sleep' to match history.py stats
+        
+        # 2. Map ALL other emotions (happy, sad, surprise, etc.) to Neutral
+        # This enforces your app's logic.
+        return 'neutral'
+    
+    def add_emotion(self, modality, emotion, confidence=1.0):
+        """Add emotion detection from a modality"""
+        with self.lock:
+            emotion = self.normalize_emotion(emotion) # Apply normalization
+            self.recent_emotions[modality].append({
+                'emotion': emotion,
+                'confidence': confidence,
+                'timestamp': datetime.now()
+            })
+            print(f"📊 Added {modality}: {emotion} (confidence: {confidence:.2f})")
+    
+    def get_fused_emotion(self):
+        """Compute fused emotion from all modalities"""
+        with self.lock:
+            emotion_scores = {}
+            total_weight = 0
+            
+            for modality, weight in self.WEIGHTS.items():
+                if not self.recent_emotions[modality]:
+                    continue
+                
+                recent = self.recent_emotions[modality][-1]
+                emotion = recent['emotion']
+                confidence = recent['confidence']
+                score = weight * confidence
+                
+                if emotion in emotion_scores:
+                    emotion_scores[emotion] += score
+                else:
+                    emotion_scores[emotion] = score
+                
+                total_weight += weight
+            
+            if not emotion_scores:
+                return "neutral", 0.0, {}
+            
+            if total_weight > 0:
+                emotion_scores = {e: s/total_weight for e, s in emotion_scores.items()}
+            
+            temporal_scores = self.calculate_temporal_scores()
+            final_scores = {}
+            for emotion in set(list(emotion_scores.keys()) + list(temporal_scores.keys())):
+                current = emotion_scores.get(emotion, 0)
+                temporal = temporal_scores.get(emotion, 0)
+                final_scores[emotion] = 0.7 * current + 0.3 * temporal
+            
+            if final_scores:
+                top_emotion = max(final_scores.items(), key=lambda x: x[1])
+                fused_emotion = top_emotion[0]
+                confidence = top_emotion[1]
+                self.last_fused_emotion = fused_emotion
+                self.emotion_scores = final_scores
+                return fused_emotion, confidence, final_scores
+            
+            return self.last_fused_emotion, 0.5, {}
+    
+    def calculate_temporal_scores(self):
+        """Calculate emotion scores based on recent history"""
+        temporal_scores = {}
+        
+        for modality, weight in self.WEIGHTS.items():
+            emotions = self.recent_emotions[modality]
+            if not emotions:
+                continue
+            
+            for i, item in enumerate(emotions):
+                emotion = item['emotion']
+                confidence = item['confidence']
+                decay = 0.5 + (0.5 * (i / len(emotions)))
+                score = weight * confidence * decay
+                
+                if emotion in temporal_scores:
+                    temporal_scores[emotion] += score
+                else:
+                    temporal_scores[emotion] = score
+        
+        total = sum(temporal_scores.values())
+        if total > 0:
+            temporal_scores = {e: s/total for e, s in temporal_scores.items()}
+        
+        return temporal_scores
+    
+    def get_detailed_analysis(self):
+        """Get detailed breakdown of current emotion state"""
+        with self.lock:
+            fused_emotion, confidence, scores = self.get_fused_emotion()
+            
+            modality_states = {}
+            for modality in ['face', 'voice', 'text']:
+                if self.recent_emotions[modality]:
+                    recent = self.recent_emotions[modality][-1]
+                    modality_states[modality] = {
+                        'emotion': recent['emotion'],
+                        'confidence': recent['confidence'],
+                        'weight': self.WEIGHTS[modality]
+                    }
+                else:
+                    modality_states[modality] = None
+            
+            return {
+                'fused_emotion': fused_emotion,
+                'confidence': confidence,
+                'emotion_scores': scores,
+                'modality_states': modality_states,
+                'timestamp': datetime.now().isoformat()
+            }
+    
+    def clear_modality(self, modality):
+        """Clear history for a specific modality"""
+        with self.lock:
+            self.recent_emotions[modality].clear()
+    
+    def reset(self):
+        """Reset all emotion history"""
+        with self.lock:
+            for modality in self.recent_emotions:
+                self.recent_emotions[modality].clear()
+            self.last_fused_emotion = "neutral"
+            self.emotion_scores = {}
+            print("🔄 Emotion fusion system reset")
+
+
+class ContinuousFusion:
+    """Continuous emotion fusion for real-time detection"""
+    
+    def __init__(self, callback=None, fusion_interval=2.0):
+        self.fusion = EmotionFusion(temporal_window=5)
+        self.callback = callback
+        self.fusion_interval = fusion_interval
+        self.is_running = False
+        self.thread = None
+        self.last_emotion = "neutral"
+    
+    def start(self):
+        """Start continuous fusion thread"""
+        if self.is_running:
+            return
+        
+        self.is_running = True
+        self.thread = threading.Thread(target=self._fusion_loop, daemon=True)
+        self.thread.start()
+        print("🚀 Continuous emotion fusion started")
+    
+    def stop(self):
+        """Stop continuous fusion thread"""
+        self.is_running = False
+        if self.thread:
+            self.thread.join(timeout=2)
+        print("⏹️ Continuous emotion fusion stopped")
+    
+    def _fusion_loop(self):
+        """Main fusion loop"""
+        
+        while self.is_running:
+            fused_emotion, confidence, scores = self.fusion.get_fused_emotion()
+            
+            if fused_emotion != self.last_emotion and confidence > 0.3:
+                self.last_emotion = fused_emotion
+                
+                if self.callback:
+                    analysis = self.fusion.get_detailed_analysis()
+                    self.callback(fused_emotion, confidence, analysis)
+                
+                # This print is now redundant, as callback will print
+                # print(f"🎯 Fused Emotion: {fused_emotion} (confidence: {confidence:.2f})")
+            
+            time.sleep(self.fusion_interval)
+    
+    def add_face_emotion(self, emotion, confidence=1.0):
+        """Add face emotion detection"""
+        self.fusion.add_emotion('face', emotion, confidence)
+    
+    def add_voice_emotion(self, emotion, confidence=1.0):
+        """Add voice emotion detection"""
+        self.fusion.add_emotion('voice', emotion, confidence)
+    
+    def add_text_emotion(self, emotion, confidence=1.0):
+        """Add text emotion detection"""
+        self.fusion.add_emotion('text', emotion, confidence)
+# --- END OF EMOTION_FUSION.PY CODE ---
+
 
 class HomePage(QFrame):
     def __init__(self, parent=None):
@@ -22,14 +254,22 @@ class HomePage(QFrame):
         self.audio_stream = None
         self.audio_frames = []
         
-        # ✅ EMOTION BUFFER SYSTEM
-        self.emotion_buffer = []  # Stores emotions detected in last minute
+        self.emotion_buffer = []
         self.buffer_start_time = None
         self.buffer_timer = None
         
         self.setup_ui()
         
+        # Initialize emotion fusion
+        self.emotion_fusion = ContinuousFusion(
+            callback=self.on_fused_emotion_changed,
+            fusion_interval=2.0
+        )
+        self.emotion_fusion.start()
+        print("✅ Emotion fusion system initialized")
+        
     def setup_ui(self):
+        """EXACT SAME AS YOUR ORIGINAL - NO CHANGES"""
         self.setStyleSheet("background-color: #3a404d;")
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
@@ -240,13 +480,28 @@ class HomePage(QFrame):
                 }
             """)
     
+    # --- !!! LOGIC FIX 2: This is the new, single point of saving !!! ---
+    def on_fused_emotion_changed(self, emotion, confidence, analysis):
+        """Called when fused emotion changes - THIS IS THE NEW SAVE POINT"""
+        print(f"🎯 Fused Emotion: {emotion} (confidence: {confidence:.1%})")
+        
+        # Save the *fused* emotion to history
+        try:
+            user_id = self.parent_window.user_id if hasattr(self.parent_window, 'user_id') else 1
+            # Save as "Fused Detection" to create the common output
+            APIClient.add_mood_entry(user_id, emotion, "Fused Detection") 
+            print(f"✅ Saved FUSED emotion to history: {emotion}")
+        except Exception as e:
+            print(f"❌ Failed to save fused emotion to history: {e}")
+            
+        # Update the UI
+        self.update_emotion(emotion)
     
     def start_emotion_buffer(self):
         """Start collecting emotions for 1 minute"""
         self.emotion_buffer = []
         self.buffer_start_time = datetime.now()
         
-        # Start buffer timer - check every 1 minute
         self.buffer_timer = QTimer()
         self.buffer_timer.timeout.connect(self.process_emotion_buffer)
         self.buffer_timer.start(60000)  # 60 seconds
@@ -264,39 +519,34 @@ class HomePage(QFrame):
         })
         print(f"📝 Added to buffer: {emotion} (Total: {len(self.emotion_buffer)})")
     
+    # --- !!! LOGIC FIX 3: This function NO LONGER saves to history !!! ---
     def process_emotion_buffer(self):
-        """Process buffer and show notification for most detected emotion"""
+        """Process buffer - NOW ONLY FEEDS FUSION"""
         if not self.emotion_buffer:
             print("⚠️ No emotions in buffer")
             return
         
-        # Count emotions
         emotion_counts = Counter([e['emotion'] for e in self.emotion_buffer])
         most_common_emotion, count = emotion_counts.most_common(1)[0]
         
         print(f"📊 Buffer results: {dict(emotion_counts)}")
         print(f"🎯 Most detected: {most_common_emotion} ({count} times)")
         
-        # Only process stress, angry, sleepy
-        if most_common_emotion.lower() in ['stress', 'angry', 'sleepy', 'sleep']:
-            # Update UI
-            self.update_emotion(most_common_emotion)
-            
-            # Save to history
-            try:
-                APIClient.add_mood_entry(1, most_common_emotion, "face_buffer")
-                print(f"✅ Saved to history: {most_common_emotion}")
-            except Exception as e:
-                print(f"❌ Failed to save history: {e}")
+        # ✅ CHANGED: Add to fusion instead of direct update
+        confidence = count / len(self.emotion_buffer)
+        # We send the raw emotion (e.g., 'happy') to the fusion class
+        # The fusion class's normalize_emotion function will handle filtering it
+        self.emotion_fusion.add_face_emotion(most_common_emotion, confidence=confidence)
         
-        # Clear buffer and restart
+        # --- REMOVED: APIClient.add_mood_entry(...) ---
+        # We no longer save the raw face buffer. The fused result is saved 
+        # in on_fused_emotion_changed.
+        
         self.emotion_buffer = []
         self.buffer_start_time = None
         
-        # Restart buffer for next minute
         if self.camera_active:
             self.start_emotion_buffer()
-    
     
     def start_face_detection(self):
         """Start camera and face emotion detection"""
@@ -310,10 +560,8 @@ class HomePage(QFrame):
             self.face_start_button.setEnabled(False)
             self.face_stop_button.setEnabled(True)
             
-            # Start emotion buffer
             self.start_emotion_buffer()
             
-            # Timer to capture frames every 5 seconds
             self.camera_timer = QTimer()
             self.camera_timer.timeout.connect(self.capture_and_analyze)
             self.camera_timer.start(5000)  # Every 5 seconds
@@ -340,7 +588,6 @@ class HomePage(QFrame):
                 print(f"Face detection error: {result['error']}")
             elif 'emotion' in result:
                 emotion = result['emotion'].lower()
-                # Add to buffer instead of immediate processing
                 self.add_emotion_to_buffer(emotion)
                 
         except Exception as e:
@@ -362,14 +609,11 @@ class HomePage(QFrame):
             self.camera.release()
             self.camera = None
         
-        # Process remaining buffer
         if self.emotion_buffer:
             self.process_emotion_buffer()
         
         self.face_start_button.setEnabled(True)
         self.face_stop_button.setEnabled(False)
-    
-
     
     def start_voice_detection(self):
         """Start recording audio"""
@@ -443,12 +687,14 @@ class HomePage(QFrame):
                 QMessageBox.warning(self, "Error", f"Voice analysis failed: {result['error']}")
             elif 'emotion' in result:
                 emotion = result['emotion'].lower()
-                self.update_emotion(emotion)
+                # ✅ CHANGED: Add to fusion
+                self.emotion_fusion.add_voice_emotion(emotion, confidence=0.85)
+                print(f"🎤 Voice detected: {emotion}")
+                # We show the raw detection, but the *fused* emotion will be saved
                 QMessageBox.information(self, "Voice Analysis", f"Detected emotion: {emotion.capitalize()}")
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to process audio: {str(e)}")
-    
     
     def analyze_text(self):
         """Analyze text emotion"""
@@ -465,14 +711,17 @@ class HomePage(QFrame):
                 QMessageBox.warning(self, "Error", f"Text analysis failed: {result['error']}")
             elif 'emotion' in result:
                 emotion = result['emotion'].lower()
-                self.update_emotion(emotion)
+                # ✅ CHANGED: Add to fusion
+                self.emotion_fusion.add_text_emotion(emotion, confidence=0.7)
+                print(f"📝 Text detected: {emotion}")
+                # We show the raw detection, but the *fused* emotion will be saved
                 QMessageBox.information(self, "Text Analysis", f"Detected emotion: {emotion.capitalize()}")
                 self.text_input.clear()
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to analyze text: {str(e)}")
     
-    
+    # --- !!! LOGIC FIX 4: Pet reactions must match 4 emotions !!! ---
     def update_emotion(self, emotion):
         """Update UI with detected emotion"""
         if hasattr(self.parent_window, 'current_mood'):
@@ -481,16 +730,15 @@ class HomePage(QFrame):
         self.update_mood(emotion)
         
         if hasattr(self.parent_window, 'pet_page'):
+            # Use only your 4 target emotions
             pet_reactions = {
-                "happy": "happy",
-                "sad": "sad",
                 "angry": "angry",
-                "stress": "sad",
-                "neutral": "happy",
-                "sleepy": "neutral",
-                "sleep": "sleepy"
+                "stress": "sad",     # Stress makes pet sad
+                "neutral": "neutral", # Neutral pet
+                "sleep": "sleepy"     # Sleep makes pet sleepy
             }
-            pet_mood = pet_reactions.get(emotion, "happy")
+            # Default to "neutral" if emotion is not in map
+            pet_mood = pet_reactions.get(emotion, "neutral") 
             
             self.parent_window.pet_page.pet_mood = pet_mood
             
@@ -498,7 +746,8 @@ class HomePage(QFrame):
                 self.parent_window.pet_page.update_ui()
             
             try:
-                APIClient.update_pet_mood(1, pet_mood)
+                user_id = self.parent_window.user_id if hasattr(self.parent_window, 'user_id') else 1
+                APIClient.update_pet_mood(user_id, pet_mood)
             except Exception as e:
                 print(f"Failed to update pet mood: {e}")
     
@@ -509,14 +758,13 @@ class HomePage(QFrame):
     def update_username(self, username):
         self.greeting_label.setText(f"Hello, {username}! 👋")
     
+    # --- !!! LOGIC FIX 5: UI must match 4 emotions !!! ---
     def update_mood(self, mood):
+        # Use only your 4 target emotions
         mood_colors = {
-            "happy": "#FFD700",
-            "sad": "#1E90FF",
             "angry": "#FF4500",
             "stress": "#FF6347",
             "neutral": "#FFFFFF",
-            "sleepy": "#9370DB",
             "sleep": "#9370DB"
         }
         self.mood_label.setText(f"Current Mood: {mood.capitalize()}")
@@ -528,19 +776,21 @@ class HomePage(QFrame):
             }}
         """)
         
+        # Use only your 4 target emotions
         reactions = {
-            "happy": "Your pet is excited to see you happy!",
-            "sad": "Your pet is giving you comforting cuddles",
             "angry": "Your pet is trying to calm you down",
             "stress": "Your pet wants to help you relax",
             "neutral": "Your pet is peacefully resting",
-            "sleepy": "Your pet is feeling sleepy too",
             "sleep": "Your pet is feeling sleepy too"
         }
-        self.pet_reaction_label.setText(reactions.get(mood, ""))
+        self.pet_reaction_label.setText(reactions.get(mood, "Your pet is peacefully resting"))
     
     def cleanup(self):
         """Cleanup resources"""
+        if hasattr(self, 'emotion_fusion'):
+            self.emotion_fusion.stop()
+            print("✅ Emotion fusion stopped")
+        
         if self.camera_active:
             self.stop_face_detection()
         if self.recording_active:

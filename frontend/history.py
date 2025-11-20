@@ -63,7 +63,7 @@ class HistoryPage(QFrame):
             }
         """)
         
-        # FIXED: Correct emotion labels
+        # Correct emotion labels
         self.sleep_stat = QLabel("😴 Sleep: 0%")
         self.stress_stat = QLabel("😰 Stress: 0%")
         self.angry_stat = QLabel("😠 Angry: 0%")
@@ -85,7 +85,9 @@ class HistoryPage(QFrame):
     def refresh_history(self):
         """Fetch latest mood history from API"""
         print("Refreshing mood history from backend...")
-        history_data = APIClient.get_mood_history()
+        # Assuming parent_window has user_id, default to 1 otherwise
+        user_id = getattr(self.parent(), 'user_id', 1) 
+        history_data = APIClient.get_mood_history(user_id)
         
         if isinstance(history_data, dict) and 'error' in history_data:
             QMessageBox.critical(self, "Error", str(history_data['error']))
@@ -115,15 +117,13 @@ class HistoryPage(QFrame):
             except (ValueError, TypeError):
                 display_time = "Invalid Date"
 
-            # Add emoji based on mood
+            # --- !!! LOGIC FIX: Cleaned up emojis to match your 4 emotions !!! ---
             mood_emojis = {
                 'Sleep': '😴',
-                'Sleepy': '😴',
+                'Sleepy': '😴', # Kept for safety
                 'Stress': '😰',
                 'Angry': '😠',
                 'Neutral': '😐',
-                'Happy': '😊',
-                'Sad': '😢'
             }
             emoji = mood_emojis.get(mood, '😐')
             
@@ -137,6 +137,7 @@ class HistoryPage(QFrame):
             moods = [e.get('mood', 'neutral').lower() for e in self.all_history_data]
             
             # Count emotions (handle both 'sleep' and 'sleepy')
+            # This is correct and matches your fusion logic
             sleep_count = moods.count("sleep") + moods.count("sleepy")
             stress_count = moods.count("stress")
             angry_count = moods.count("angry")

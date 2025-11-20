@@ -1,8 +1,5 @@
 {
-  "theme": "Dark",
+  "theme": "Light",
   "mic_permission": "Always Allow",
-  "cam_permission": "Always Allow",
-  "enable_notifications": true,
-  "sound_notifications": true,
-  "auto_dismiss": true
+  "cam_permission": "Always Allow"
 }
