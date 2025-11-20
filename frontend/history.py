@@ -109,7 +109,6 @@ class HistoryPage(QFrame):
         for entry in self.all_history_data:
             mood = entry.get('mood', 'Unknown').capitalize()
             timestamp_str = entry.get('timestamp', '')
-            source = entry.get('source', 'unknown')
             
             try:
                 dt_object = datetime.fromisoformat(timestamp_str)
@@ -120,14 +119,14 @@ class HistoryPage(QFrame):
             # --- !!! LOGIC FIX: Cleaned up emojis to match your 4 emotions !!! ---
             mood_emojis = {
                 'Sleep': '😴',
-                'Sleepy': '😴', # Kept for safety
+                'Sleepy': '😴',
                 'Stress': '😰',
                 'Angry': '😠',
                 'Neutral': '😐',
             }
             emoji = mood_emojis.get(mood, '😐')
             
-            item_text = f"{emoji} {mood.ljust(12)} | {display_time} | {source}"
+            item_text = f"{emoji} {mood.ljust(12)} | {display_time}"
             list_item = QListWidgetItem(item_text)
             self.history_list.addItem(list_item)
             
