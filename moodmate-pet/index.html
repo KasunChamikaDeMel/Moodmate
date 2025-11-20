@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>MoodMate Pet</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+</head>
+<body>
+    <div id="pet-container">
+        <div id="bubble"></div>
+        <lottie-player 
+            id="pet-anim" 
+            src="assets/idle-1.json" 
+            background="transparent" 
+            speed="0.8" 
+            loop 
+            autoplay
+            preserveAspectRatio="xMidYMax meet"> 
+        </lottie-player>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html>

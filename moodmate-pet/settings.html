@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; padding: 20px; background: #f9f9f9; }
+        h3 { text-align: center; margin-top: 0; }
+        label { display: block; margin-top: 20px; font-weight: bold; font-size: 14px; }
+        input[type="range"] { width: 100%; margin-top: 10px; cursor: pointer; }
+        .note { font-size: 12px; color: #666; margin-top: 30px; text-align: center; }
+    </style>
+</head>
+<body>
+    <h3>MoodMate Settings ⚙️</h3>
+
+    <label>Size:</label>
+    <input type="range" id="size-slider" min="100" max="500" value="300">
+
+    <label>Transparency:</label>
+    <input type="range" id="opacity-slider" min="0.2" max="1" step="0.1" value="1">
+
+    <p class="note">Changes apply immediately</p>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        // Size වෙනස් කරනකොට
+        document.getElementById('size-slider').addEventListener('input', (e) => {
+            ipcRenderer.send('update-settings', { type: 'size', value: e.target.value });
+        });
+
+        // Opacity වෙනස් කරනකොට
+        document.getElementById('opacity-slider').addEventListener('input', (e) => {
+            ipcRenderer.send('update-settings', { type: 'opacity', value: e.target.value });
+        });
+    </script>
+</body>
+</html>
