@@ -145,3 +145,80 @@ ipcMain.on('show-context-menu', () => {
     ]);
     menu.popup(petWindow);
 });
+
+// --- 🔌 SYSTEM MONITORING (MoodMate Senses) ---
+
+// --- 🔌 SYSTEM MONITORING (Power Fix) ---
+const si = require('systeminformation');
+const dns = require('dns'); 
+
+let lastState = { charging: false, internet: true };
+
+setInterval(async () => {
+    if (!petWindow || petWindow.isDestroyed()) return;
+
+    try {
+        // 1. BATTERY & CHARGING CHECK
+        const battery = await si.battery();
+        
+        // Debug: බැටරි විස්තරේ හරියට එනවද කියලා බලාගන්න මේක දැම්මා
+        // console.log("Battery Info:", battery); 
+
+        // අපිට වැදගත් වෙන්නේ "වයර් එක ගහලද (acConnected)" කියන එකයි.
+        // Desktop වල බැටරි නෑ, ඒ නිසා battery.hasBattery චෙක් එක අයින් කළා හෝ acConnected බලනවා.
+        const isPluggedIn = battery.acConnected || battery.isCharging;
+
+        // A. චාජරේ ගැහුවම (Plugged In)
+        if (isPluggedIn && !lastState.charging) {
+            console.log("🔌 Detected: Power Connected");
+            petWindow.webContents.send('backend-trigger', {
+                emotion: 'poweron',
+                message: "Yum! Electricity! Thanks for the power! ⚡"
+            });
+            lastState.charging = true;
+            return;
+        }
+
+        // B. චාජරේ ගැලෙව්වම (Unplugged)
+        if (!isPluggedIn && lastState.charging) {
+            console.log("🔌 Detected: Power Removed");
+            lastState.charging = false;
+            petWindow.webContents.send('backend-trigger', {
+                emotion: 'poweroff',
+                message: "Oh no! Charger removed! I'm losing power... 🔌❌"
+            });
+            return;
+        }
+
+        // C. බැටරි ලෝ නම් (Low Battery - Laptop only)
+        // Desktop වල battery.percent සමහර විට -1 වෙන්න පුළුවන්, ඒක හින්දා hasBattery චෙක් කරමු
+        if (battery.hasBattery && !isPluggedIn && battery.percent < 20) {
+             petWindow.webContents.send('backend-trigger', {
+                emotion: 'stress',
+                message: `🔋 I'm weak... Battery is at ${battery.percent}%!`
+            });
+            return;
+        }
+
+        // 2. INTERNET CHECK (මේක හරියට වැඩනේ, ඒක නිසා වෙනසක් නෑ)
+        dns.lookup('google.com', (err) => {
+            if (err && lastState.internet) {
+                petWindow.webContents.send('backend-trigger', {
+                    emotion: 'wifioff',
+                    message: "Oh no! No Internet! I feel lonely... 🌍❌"
+                });
+                lastState.internet = false;
+            } else if (!err && !lastState.internet) {
+                petWindow.webContents.send('backend-trigger', {
+                    emotion: 'wifion',
+                    message: "Yay! We are back online! 🌐✨"
+                });
+                lastState.internet = true;
+            }
+        });
+
+    } catch (error) {
+        console.error("System Check Error:", error);
+    }
+
+}, 5000); // ඉක්මනට ටෙස්ට් කරන්න තත්පර 5කට සැරයක් දැම්මා

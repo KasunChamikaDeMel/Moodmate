@@ -10,8 +10,12 @@ let messageSequenceTimer = null;
 
 // --- 1. GIF DATABASE ---
 const allAnimations = [
-    'assets/idle-1.json', 'assets/idle-2.json', 
-    'assets/happy-1.json', 'assets/sleep-1.json'
+    'assets/idle-1.json', 'assets/idle-2.json',
+    'assets/idle-3.json', 'assets/idle-4.json',
+    'assets/idle-5.json', 'assets/idle-6.json',
+    'assets/idle-7.json',
+    'assets/happy-1.json', 'assets/sleep-1.json',
+    'assets/chargeon.json', 'assets/wifion.json'
 ];
 
 const uniqueAnimations = {
@@ -19,30 +23,87 @@ const uniqueAnimations = {
     angry: 'assets/idle-2.json',
     sleepy: 'assets/sleep-1.json',
     happy: 'assets/happy-1.json',
-    love: 'assets/love-1.json'
+    love: 'assets/love-1.json',
+    poweroff : 'assets/chargeoff.json',
+    poweron : 'assets/chargeon.json',
+    wifioff: 'assets/wifioff.json',
+    wifion: 'assets/wifion.json'
+
 };
 
 // --- 2. FULL DATA SET ---
 const emotionData = {
-    "stress": { 
+"stress": { 
         "icon": "😰", 
-        "pet_says": ["Take it easy buddy!", "Just breathe...", "It's okay to rest."], 
-        "tips": ["Take 5 deep breaths.", "Step away for 5 mins.", "Listen to music."] 
+        "pet_says": ["You got this!", "Reset & Restart.", "Don't give up!"],
+        "tips": [
+            "Prioritize tasks. ✅", 
+            "Take a deep breath. 🧘", 
+            "Focus on one thing. 🎯"
+        ] 
     },
     "angry": { 
-        "icon": "😠", 
-        "pet_says": ["Whoa! Cool down.", "Don't explode!", "Let's chill."], 
-        "tips": ["Count to 10 slowly.", "Drink water slowly.", "Walk away."] 
+        "icon": "😤", 
+        "pet_says": ["Channel that energy!", "Stay focused.", "Don't lose control."], 
+        "tips": [
+            "Listen to Lofi music. 🎧", 
+            "Count to 10. 🔟", 
+            "Drink water. 💧"
+        ] 
     },
     "sleepy": { 
-        "icon": "😴", 
-        "pet_says": ["Yawn~ So tired...", "Power nap time?", "Zzz..."], 
-        "tips": ["Wash your face.", "Stretch your body.", "Sleep for 20 mins."] 
+        "icon": "🥱", 
+        "pet_says": ["Wake up!", "Stay sharp!", "Eyes on screen!"], 
+        "tips": [
+            "Splash cold water. 💦", 
+            "Stand up & stretch. 🙆", 
+            "Turn on bright lights. 💡"
+        ] 
     },
     "sleep": { 
-        "icon": "🌙", 
-        "pet_says": ["Goodnight!", "Time to sleep."], 
-        "tips": ["Turn off the screen.", "Relax your eyes."] 
+        "icon": "🚫", 
+        "pet_says": ["No sleeping yet!", "Keep grinding!", "Finish the goal!"], 
+        "tips": [
+            "Do 5 jumping jacks. 🏃", 
+            "Walk for 2 mins. 🚶", 
+            "Drink some coffee. ☕"
+        ] 
+    },
+    "poweroff": { 
+        "icon": "🔌", 
+        "pet_says": ["Running on battery.", "Charger removed!", "Save power!"],
+        "tips": [
+            "Lower screen brightness. 🔅", 
+            "Close unused apps. 📉", 
+            "Plug in at 20%. 🔋"
+        ]
+    },
+    "poweron": { 
+        "icon": "⚡", 
+        "pet_says": ["Unlimited Power!", "Energized!", "Charging now!"],
+        "tips": [
+            "Good for heavy tasks. 🚀", 
+            "Increase brightness. 🔆", 
+            "Unplug at 100%. ❤️"
+        ]
+    },
+    "wifioff": { 
+        "icon": "📡", 
+        "pet_says": ["No connection...", "It's too quiet...", "Where is the Wi-Fi?"],
+        "tips": [
+            "Check your router. 📶", 
+            "Restart Wi-Fi. 🔄", 
+            "Clean your desktop. 📂"
+        ] 
+    },
+    "wifion": { 
+        "icon": "🌐", 
+        "pet_says": ["Back online!", "Connected!", "Internet is back!"],
+        "tips": [
+            "Check your emails. 📧", 
+            "Cloud sync active. ☁️", 
+            "Update your apps. 📲"
+        ] 
     }
 };
 
