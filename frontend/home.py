@@ -11,6 +11,11 @@ import wave
 import io
 from datetime import datetime
 from collections import Counter
+import requests
+import subprocess
+import os
+import platform
+import threading
 
 # --- Use the REAL APIClient ---
 from api_client import APIClient
@@ -261,9 +266,138 @@ class HomePage(QFrame):
         # Map other emotions to neutral
         return 'neutral'
     
+    def check_pet_app_running(self):
+        """Check if pet app is running by testing ports (non-blocking with short timeout)"""
+        ports_to_try = [4000, 4001, 4002, 4003, 4004, 4005]
+        for port in ports_to_try:
+            try:
+                # Try a GET request with very short timeout (non-blocking)
+                response = requests.get(f"http://localhost:{port}/trigger", timeout=0.1)
+                return True
+            except requests.exceptions.ConnectionError:
+                continue
+            except requests.exceptions.Timeout:
+                continue
+            except:
+                # Any response (even error) means server is running
+                return True
+        return False
+    
+    def start_pet_app(self):
+        """Start the Electron pet app if not already running"""
+        if self.check_pet_app_running():
+            print("🐾 Pet app is already running")
+            return True
+        
+        try:
+            # Get the project root directory (go up from frontend/)
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(current_dir)
+            pet_dir = os.path.join(project_root, 'moodmate-pet')
+            
+            if not os.path.exists(pet_dir):
+                print(f"⚠️ Pet app directory not found: {pet_dir}")
+                return False
+            
+            # Check if node_modules exists (dependencies installed)
+            node_modules = os.path.join(pet_dir, 'node_modules')
+            if not os.path.exists(node_modules):
+                print("⚠️ Pet app dependencies not installed. Please run 'npm install' in moodmate-pet directory")
+                return False
+            
+            # Start Electron app silently in background (no CMD window)
+            if platform.system() == 'Windows':
+                # On Windows, use start /B to run in background without showing CMD window
+                subprocess.Popen(
+                    ['cmd', '/c', 'start', '/B', 'npm', 'start'],
+                    cwd=pet_dir,
+                    shell=False,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+                )
+            else:
+                # On Linux/Mac
+                subprocess.Popen(
+                    ['npm', 'start'],
+                    cwd=pet_dir,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True
+                )
+            
+            print("🚀 Starting Electron pet app in background...")
+            print("   (This will open a new window. The HTTP server will start on port 4000)")
+            
+            # Check if it started successfully (with retries in background)
+            import time
+            for i in range(10):  # Check 10 times over 5 seconds
+                time.sleep(0.5)  # Check every 0.5 seconds
+                if self.check_pet_app_running():
+                    print("✅ Pet app started successfully")
+                    return True
+            
+            print("⚠️ Pet app may still be starting. It will be ready when needed.")
+            return False
+                
+        except Exception as e:
+            print(f"❌ Error starting pet app: {e}")
+            return False
+    
+    def send_emotion_to_pet(self, emotion):
+        """Send emotion to moodmate-pet module via HTTP POST"""
+        # Only trigger pet for stress, angry, or sleep (not neutral)
+        if emotion not in ['stress', 'angry', 'sleep']:
+            print(f"🔕 Pet not triggered for emotion '{emotion}' (only triggers for stress/angry/sleep)")
+            return
+        
+        # Pet app should already be running (started with backend)
+        # Don't try to start it - just check and warn if not running
+        if not self.check_pet_app_running():
+            print("⚠️ Pet app not running! It should have started with the backend.")
+            print("   Please restart the backend to start the pet app.")
+            return
+        
+        # Map emotion names for pet module (pet uses 'sleepy' not 'sleep')
+        pet_emotion_map = {
+            'sleep': 'sleepy',
+            'angry': 'angry',
+            'stress': 'stress'
+        }
+        
+        pet_emotion = pet_emotion_map.get(emotion, emotion)
+        
+        data = {
+            "emotion": pet_emotion,
+            "message": f"Detected emotion: {emotion.capitalize()}"
+        }
+        
+        # Try multiple ports in case 4000 is in use
+        ports_to_try = [4000, 4001, 4002, 4003, 4004, 4005]
+        
+        for port in ports_to_try:
+            try:
+                url = f"http://localhost:{port}/trigger"
+                response = requests.post(url, json=data, timeout=2)
+                if response.status_code == 200:
+                    print(f"🐾 Sent emotion '{pet_emotion}' to pet module on port {port}")
+                    return  # Success, exit
+            except requests.exceptions.ConnectionError:
+                continue  # Try next port
+            except requests.exceptions.Timeout:
+                continue  # Try next port
+            except Exception as e:
+                continue  # Try next port
+        
+        # If all ports failed
+        print(f"⚠️ Pet module not responding on any port ({ports_to_try}) - emotion not sent")
+    
     def start_emotion_buffer(self):
         """Start collecting emotions for 1 minute"""
         self.emotion_buffer = []
+        
+        # Don't start Electron app here - it should already be running from app startup
+        # Just start the buffer timer
         
         self.buffer_timer = QTimer()
         self.buffer_timer.timeout.connect(self.process_emotion_buffer)
@@ -295,24 +429,30 @@ class HomePage(QFrame):
         print(f"📊 Emotions collected in 1 minute: {dict(emotion_counts)}")
         print(f"🎯 Most detected emotion: {most_common_emotion} ({count} times out of {len(self.emotion_buffer)} total)")
         
+        # Save ONLY the most common emotion to history (not all individual detections)
+        try:
+            user_id = self.parent_window.user_id if hasattr(self.parent_window, 'user_id') else 1
+            APIClient.add_mood_entry(user_id, most_common_emotion, "face")
+            print(f"💾 Saved most common emotion to history: {most_common_emotion}")
+        except Exception as e:
+            print(f"Failed to save emotion to history: {e}")
+        
+        # Send emotion to moodmate-pet module (only if it's one of the 3 target emotions)
+        # Pet app should already be running (started when detection began)
+        if most_common_emotion in ['stress', 'angry', 'sleep']:
+            print(f"🐾 Triggering pet for most common emotion: {most_common_emotion}")
+            self.send_emotion_to_pet(most_common_emotion)
+        
         # Only trigger notification if most common emotion is stress, angry, or sleep
         if most_common_emotion in ['stress', 'angry', 'sleep']:
             print(f"🔔 Most common emotion is '{most_common_emotion}' - TRIGGERING NOTIFICATION")
-            
-            # Save to history
-            try:
-                user_id = self.parent_window.user_id if hasattr(self.parent_window, 'user_id') else 1
-                APIClient.add_mood_entry(user_id, most_common_emotion, "face")
-            except Exception as e:
-                print(f"Failed to save emotion to history: {e}")
-            
             # Update UI - this will trigger notification through sidebar.py
             self.update_emotion(most_common_emotion)
         else:
-            # Most common is neutral or something else - NO NOTIFICATION
+            # Most common is neutral - NO NOTIFICATION, but still update UI
             print(f"🔕 No notification - most common emotion is '{most_common_emotion}' (notifications only for stress/angry/sleep)")
-            # Don't update UI or save to history for neutral when it's most common
-            # This prevents unnecessary notifications
+            # Update UI but no notification
+            self.update_emotion(most_common_emotion)
         
         # Clear buffer and restart if camera is still active
         self.emotion_buffer = []
@@ -363,6 +503,7 @@ class HomePage(QFrame):
                 print(f"📷 Face detected: {emotion}")
                 
                 # Add to buffer (will be processed after 1 minute)
+                # Don't save to history here - only save the most common after 1 minute
                 self.add_emotion_to_buffer(emotion)
                 
         except Exception as e:
@@ -465,7 +606,7 @@ class HomePage(QFrame):
                 emotion = self.normalize_emotion(result['emotion'])
                 print(f"🎤 Voice detected: {emotion}")
                 
-                # Save to history
+                # Save to history immediately for voice (voice is manual, not continuous like face)
                 try:
                     user_id = self.parent_window.user_id if hasattr(self.parent_window, 'user_id') else 1
                     APIClient.add_mood_entry(user_id, emotion, "voice")
@@ -495,7 +636,7 @@ class HomePage(QFrame):
                 emotion = self.normalize_emotion(result['emotion'])
                 print(f"📝 Text detected: {emotion}")
                 
-                # Save to history
+                # Save to history immediately for text (text is manual, not continuous like face)
                 try:
                     user_id = self.parent_window.user_id if hasattr(self.parent_window, 'user_id') else 1
                     APIClient.add_mood_entry(user_id, emotion, "text")

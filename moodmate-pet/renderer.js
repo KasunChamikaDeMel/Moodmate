@@ -178,11 +178,25 @@ ipcRenderer.on('backend-trigger', (event, data) => {
                 <div class="tip-badge">💡 Quick Tip</div>
                 <div style="font-weight:500;">${randomTip}</div>
             `;
-        }, 4000); 
+        }, 4000);
+        
+        // 🛑 STEP 3: Hide notification bubble after 8 seconds (pet window stays visible)
+        if (hideTimer) clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => {
+            bubble.style.display = 'none';
+            console.log("💬 Notification bubble hidden");
+        }, 8000);  // Hide bubble after 8 seconds 
 
     } else {
         bubble.innerText = data.message || "Meow! 😺";
         bubble.style.display = 'block';
+        
+        // Hide notification bubble after 8 seconds
+        if (hideTimer) clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => {
+            bubble.style.display = 'none';
+            console.log("💬 Notification bubble hidden");
+        }, 8000);  // Hide bubble after 8 seconds
     }
 });
 

@@ -16,21 +16,18 @@ const server = http.createServer((req, res) => {
             try {
                 const data = JSON.parse(body);
 
-                if (petWindow) {
-                    // 1. පූසාව පෙන්නන්න
+                if (petWindow && !petWindow.isDestroyed()) {
+                    // 1. පූසාව පෙන්නන්න (Don't auto-hide - user will hide it manually)
                     petWindow.show();
                     petWindow.restore();
+                    petWindow.focus();  // Bring window to front
                     petWindow.webContents.send('backend-trigger', data);
 
-                    // 2. පරණ Timer තිබ්බොත් මකන්න
+                    // 2. Clear any old hide timeout (no longer auto-hiding pet window)
                     if (hideTimeout) clearTimeout(hideTimeout);
-
-                    // 3. අලුත් Timer එක දාන්න (තත්පර 10කින් හැංගෙන්න)
-                    console.log("⏳ Timer Started: 10 Seconds...");
-                    hideTimeout = setTimeout(() => {
-                        console.log("👻 Time's up! Hiding Pet.");
-                        petWindow.hide();
-                    }, 10000);
+                    hideTimeout = null;  // Pet stays visible until user hides it
+                    
+                    console.log("🐾 Pet window shown - user can hide it manually");
                 }
 
                 res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -41,7 +38,33 @@ const server = http.createServer((req, res) => {
         });
     }
 });
-server.listen(4000, () => console.log('🐶 Pet listening on Port 4000'));
+// Store the actual port being used
+let actualPort = 4000;
+
+// Try to listen on port 4000, if it fails try alternative ports
+const tryListen = (port, maxAttempts = 5) => {
+    if (port > 4000 + maxAttempts) {
+        console.error('❌ Could not find available port for pet server');
+        return;
+    }
+    
+    server.once('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+            console.log(`⚠️ Port ${port} is in use, trying ${port + 1}...`);
+            tryListen(port + 1, maxAttempts);
+        } else {
+            console.error(`❌ Error starting pet server: ${err.message}`);
+        }
+    });
+    
+    server.listen(port, '127.0.0.1', () => {
+        actualPort = port;
+        console.log(`🐶 Pet listening on Port ${port}`);
+        console.log(`📡 Pet trigger endpoint: http://localhost:${port}/trigger`);
+    });
+};
+
+tryListen(4000);
 
 // --- 2. WINDOWS CREATION ---
 function createPetWindow() {

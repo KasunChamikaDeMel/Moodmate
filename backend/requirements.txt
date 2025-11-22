@@ -12,3 +12,4 @@ opencv-python
 flask-sqlalchemy
 flask-migrate
 pymysql  # or psycopg2-binary for PostgreSQL, or mysqlclient
+requests

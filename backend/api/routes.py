@@ -132,8 +132,8 @@ def predict_face():
         
         emotion = predict_emotion_from_image(data['image'])
         
-        # Add to mood history
-        add_to_history(1, emotion, "face")
+        # Don't save to history here - frontend will save only the most common emotion after 1 minute
+        # This prevents saving every individual detection
         
         return jsonify({
             "emotion": emotion,

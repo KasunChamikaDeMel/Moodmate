@@ -4,6 +4,10 @@ from datetime import datetime
 import sys
 import json
 import os
+import threading
+import subprocess
+import platform
+import requests
 from PySide6.QtWidgets import QMainWindow, QStackedWidget, QMessageBox, QApplication
 from PySide6.QtCore import QTimer
 from ui_sidebar import Ui_MainWindow
@@ -87,6 +91,9 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
         
         # Setup timers
         self.setup_timers()
+        
+        # Pet app should already be running (started with backend)
+        # No need to start it here
     
     def load_settings(self):
         """Load app settings from file"""
@@ -315,6 +322,91 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
             self.notification_window.close()
         
         event.accept()
+    
+    def check_pet_app_running(self):
+        """Check if pet app is running by testing ports (non-blocking with short timeout)"""
+        ports_to_try = [4000, 4001, 4002, 4003, 4004, 4005]
+        for port in ports_to_try:
+            try:
+                # Try a GET request with very short timeout (non-blocking)
+                response = requests.get(f"http://localhost:{port}/trigger", timeout=0.1)
+                return True
+            except requests.exceptions.ConnectionError:
+                continue
+            except requests.exceptions.Timeout:
+                continue
+            except:
+                # Any response (even error) means server is running
+                return True
+        return False
+    
+    def start_pet_app_once(self):
+        """Start Electron pet app once at application startup (in background thread)"""
+        # Start in background thread (completely non-blocking)
+        thread = threading.Thread(target=self._start_pet_app_background, daemon=True)
+        thread.start()
+    
+    def _start_pet_app_background(self):
+        """Background thread function to start pet app (completely non-blocking)"""
+        # Quick check first (with minimal timeout)
+        if self.check_pet_app_running():
+            print("🐾 Pet app is already running")
+            return
+        
+        try:
+            # Get the project root directory (go up from frontend/)
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(current_dir)
+            pet_dir = os.path.join(project_root, 'moodmate-pet')
+            
+            if not os.path.exists(pet_dir):
+                print(f"⚠️ Pet app directory not found: {pet_dir}")
+                return False
+            
+            # Check if node_modules exists (dependencies installed)
+            node_modules = os.path.join(pet_dir, 'node_modules')
+            if not os.path.exists(node_modules):
+                print("⚠️ Pet app dependencies not installed. Please run 'npm install' in moodmate-pet directory")
+                return False
+            
+            # Start Electron app silently in background (no CMD window)
+            if platform.system() == 'Windows':
+                # On Windows, use start /B to run in background without showing CMD window
+                subprocess.Popen(
+                    ['cmd', '/c', 'start', '/B', 'npm', 'start'],
+                    cwd=pet_dir,
+                    shell=False,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+                )
+            else:
+                # On Linux/Mac
+                subprocess.Popen(
+                    ['npm', 'start'],
+                    cwd=pet_dir,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True
+                )
+            
+            print("🚀 Starting Electron pet app in background (once at startup)...")
+            print("   (The HTTP server will start on port 4000)")
+            
+            # Check if it started successfully (with retries in background)
+            import time
+            for i in range(10):  # Check 10 times over 5 seconds
+                time.sleep(0.5)  # Check every 0.5 seconds
+                if self.check_pet_app_running():
+                    print("✅ Pet app started successfully")
+                    return True
+            
+            print("⚠️ Pet app may still be starting. It will be ready when needed.")
+            return False
+                
+        except Exception as e:
+            print(f"❌ Error starting pet app: {e}")
+            return False
 
 
 def main():
