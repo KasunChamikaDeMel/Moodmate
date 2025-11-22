@@ -374,24 +374,29 @@ class NotificationSettingsPage(QFrame):
             except Exception as e:
                 print(f"Error loading notification settings: {e}")
     
+    def get_current_settings(self) -> dict:
+        """Return the current notification settings from the UI elements."""
+        pet_type = "cat"
+        for btn in self.pet_group.buttons():
+            if btn.isChecked():
+                pet_type = btn.property("pet_type")
+                break
+        
+        return {
+            'enabled': self.enable_notifications.isChecked(),
+            'pet_type': pet_type,
+            'duration': self.duration_slider.value(),
+            'position': self.position_combo.currentText(),
+            'sound_enabled': self.enable_sound.isChecked(),
+            'trigger_stress': self.stress_trigger.isChecked(),
+            'trigger_angry': self.angry_trigger.isChecked(),
+            'trigger_sleepy': self.sleepy_trigger.isChecked()
+        }
+    
     def save_settings(self):
         try:
-            pet_type = "cat"
-            for btn in self.pet_group.buttons():
-                if btn.isChecked():
-                    pet_type = btn.property("pet_type")
-                    break
-            
-            settings = {
-                'enabled': self.enable_notifications.isChecked(),
-                'pet_type': pet_type,
-                'duration': self.duration_slider.value(),
-                'position': self.position_combo.currentText(),
-                'sound_enabled': self.enable_sound.isChecked(),
-                'trigger_stress': self.stress_trigger.isChecked(),
-                'trigger_angry': self.angry_trigger.isChecked(),
-                'trigger_sleepy': self.sleepy_trigger.isChecked()
-            }
+            settings = self.get_current_settings()
+            pet_type = settings.get('pet_type', 'cat')
             
             with open(self.settings_file, 'w') as f:
                 json.dump(settings, f, indent=2)

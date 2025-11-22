@@ -112,30 +112,58 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
             
             # Show notification for negative emotions
             if self.notifications_enabled:
-                emotion_lower = emotion.lower()
-                if emotion_lower in ['stress', 'angry', 'sleepy', 'sleep', 'anger']:
-                    self.show_emotion_notification(emotion)
+                emotion_lower = emotion.lower().strip()
+                print(f"🔍 Checking notification for emotion: {emotion_lower}")
+                
+                # Normalize emotion names (fusion returns 'sleep' but notification uses 'sleepy')
+                emotion_map = {
+                    'sleep': 'sleepy',
+                    'anger': 'angry'
+                }
+                normalized_emotion = emotion_map.get(emotion_lower, emotion_lower)
+                
+                # Check if this emotion should trigger notifications
+                if normalized_emotion in ['stress', 'angry', 'sleepy']:
+                    # Get current notification settings to check triggers
+                    try:
+                        settings = self.notification_settings_page.get_current_settings()
+                        print(f"🔍 Notification settings - stress: {settings.get('trigger_stress')}, angry: {settings.get('trigger_angry')}, sleepy: {settings.get('trigger_sleepy')}")
+                        
+                        # Check if this specific emotion trigger is enabled
+                        trigger_map = {
+                            'stress': settings.get('trigger_stress', True),
+                            'angry': settings.get('trigger_angry', True),
+                            'sleepy': settings.get('trigger_sleepy', True)
+                        }
+                        
+                        should_trigger = trigger_map.get(normalized_emotion, False)
+                        print(f"🔍 Should trigger notification for {normalized_emotion}: {should_trigger}")
+                        
+                        if should_trigger:
+                            self.show_emotion_notification(normalized_emotion)
+                        else:
+                            print(f"🔕 Notification skipped for {normalized_emotion} (trigger disabled in settings)")
+                    except Exception as e:
+                        # Fallback: show notification if settings can't be read
+                        print(f"⚠️ Error reading notification settings: {e}, showing notification anyway")
+                        import traceback
+                        traceback.print_exc()
+                        self.show_emotion_notification(normalized_emotion)
+                else:
+                    print(f"🔕 Emotion {normalized_emotion} not in notification list (stress/angry/sleepy)")
         
         self.home_page.update_emotion = wrapped_update_emotion
     
     def show_emotion_notification(self, emotion):
         """Show Windows-style toast notification for detected emotion"""
-        emotion_map = {
-            'sleep': 'sleepy',
-            'anger': 'angry'
-        }
+        # Emotion is already normalized when passed here
+        # Set the pet type in notification
+        self.notification_window.set_pet_type(self.pet_type)
         
-        normalized_emotion = emotion_map.get(emotion.lower(), emotion.lower())
+        # Show notification
+        self.notification_window.show_notification(emotion, "detection")
         
-        # Only show for stress, angry, sleepy
-        if normalized_emotion in ['stress', 'angry', 'sleepy']:
-            # Set the pet type in notification
-            self.notification_window.set_pet_type(self.pet_type)
-            
-            # Show notification
-            self.notification_window.show_notification(normalized_emotion, "detection")
-            
-            print(f"🔔 Notification shown for: {normalized_emotion}")
+        print(f"🔔 Notification shown for: {emotion}")
     
     def handle_notification_action(self, action):
         """Handle notification button clicks"""
