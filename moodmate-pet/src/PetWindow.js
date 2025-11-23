@@ -16,19 +16,19 @@ class PetWindow extends BrowserWindow {
             }
         });
 
-        // පූසාව Load කරනවා
+        // load pet
         this.loadFile('index.html');
 
-        // මුලින්ම Ghost Mode (අල්ලන්න බෑ)
+        // initialize as click-through
         this.setIgnoreMouseEvents(true, { forward: true });
     }
 
-    // පූසාගේ Size එක වෙනස් කරන Method එක
+    // resize pet method
     resizePet(size) {
         this.setSize(parseInt(size), parseInt(size));
     }
 
-    // මවුස් එක පාලනය කරන Method එක
+    // mouse control method
     setClickable(isClickable) {
         if (isClickable) {
             this.setIgnoreMouseEvents(false);

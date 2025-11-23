@@ -46,26 +46,26 @@ handleIPC() {
             this.settingsWindow.show();
         });
 
-        // --- 4. DRAG LOGIC (අලුත් ක්‍රමය - Bulletproof) ---
+        // --- 4. DRAG LOGIC (Bulletproof) ---
         let dragInterval = null;
 
         ipcMain.on('drag-start', (event, clickOffset) => {
             const { screen } = require('electron');
             
-            // පරණ Interval එකක් තිබ්බොත් අයින් කරන්න
+            // remove old Interval
             if (dragInterval) clearInterval(dragInterval);
 
-            // තත්පරේට 60 සැරයක් Mouse එක තියෙන තැන බලන්න
+            // Check mouse position 60 times per second
             dragInterval = setInterval(() => {
                 const cursor = screen.getCursorScreenPoint();
-                // Mouse එක තියෙන තැනින්, අල්ලපු තැන (Offset) අඩු කරලා Window එක තියන්න
+                // Move the pet window to follow the cursor, adjusted by the initial click offset
                 this.petWindow.setPosition(cursor.x - clickOffset.x, cursor.y - clickOffset.y);
             }, 1000 / 60); // 60 FPS Smoothness
         });
 
         ipcMain.on('drag-end', () => {
             if (dragInterval) {
-                clearInterval(dragInterval); // Drag කිරීම නවත්තන්න
+                clearInterval(dragInterval); // Stop dragging
                 dragInterval = null;
             }
         });

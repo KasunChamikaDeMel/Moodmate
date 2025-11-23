@@ -24,16 +24,16 @@ body {
 /* --- ✨ BEAUTIFUL BUBBLE DESIGN ✨ --- */
 #bubble {
     position: absolute;
-    top: -90px; /* උඩට ගත්තා */
+    top: -90px;
     
-    /* ලා නිල් සහ සුදු මිශ්‍ර පසුබිමක් */
+
     background: linear-gradient(145deg, #ffffff, #f0f8ff);
-    border: 2px solid #e6eef5; /* සියුම් බෝඩරයක් */
+    border: 2px solid #e6eef5; /* Subtle border */
     
-    color: #2d3436; /* තද අළු පාට අකුරු (කළු වලට වඩා ලස්සනයි) */
+    color: #2d3436;
     padding: 18px 25px;
     border-radius: 20px;
-    border-bottom-left-radius: 5px; /* Speech Bubble හැඩය */
+    border-bottom-left-radius: 5px; /* Speech Bubble shape */
     
     font-family: 'Segoe UI', sans-serif;
     font-size: 15px;
@@ -42,7 +42,7 @@ body {
     min-width: 200px;
     max-width: 220px;
     
-    /* මෘදු සෙවනැල්ල */
+    /* shadow */
     box-shadow: 0px 8px 20px rgba(108, 92, 231, 0.15);
     
     display: none;
@@ -50,13 +50,12 @@ body {
     animation: floatUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Bounce effect */
 }
 
-/* බබල් එක මතු වෙන Animation එක */
+/* bubble Animation*/
 @keyframes floatUp {
     from { transform: scale(0.8) translateY(20px); opacity: 0; }
     to { transform: scale(1) translateY(0); opacity: 1; }
 }
 
-/* ලොකු ඉමෝජි අයිකන් එක */
 .emoji-icon {
     font-size: 32px;
     display: block;
@@ -64,7 +63,6 @@ body {
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
 }
 
-/* 💡 Tip Badge (කහ පාට ලේබල් එක) */
 .tip-badge {
     background-color: #fff3cd;
     color: #856404;
@@ -79,12 +77,12 @@ body {
     border: 1px solid #ffeeba;
 }
 
-/* බබල් එකේ වලිගය (පූසා පැත්තට) */
+/* bubble tail (pointing to the pet) */
 #bubble::after {
     content: '';
     position: absolute;
     bottom: -10px;
-    left: 20px; /* වම් පැත්තට බරයි */
+    left: 20px; /* left side */
     border-width: 10px 10px 0;
     border-style: solid;
     border-color: #e6eef5 transparent transparent transparent;

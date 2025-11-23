@@ -5,9 +5,9 @@ const http = require('http');
 app.commandLine.appendSwitch('force-device-scale-factor', '1');
 
 let petWindow, settingsWindow, chatWindow, tray, dragInterval;
-let hideTimeout = null; // ⏳ මේක තමයි අලුත් Timer එක (Main එකේ තියෙන්නේ)
+let hideTimeout = null; // timer
 
-// --- 1. SERVER (Timer Logic එක මෙතනට ගත්තා) ---
+// --- 1. SERVER (Timer Logic gets here) ---
 const server = http.createServer((req, res) => {
     if (req.method === 'POST' && req.url === '/trigger') {
         let body = '';
@@ -17,7 +17,7 @@ const server = http.createServer((req, res) => {
                 const data = JSON.parse(body);
 
                 if (petWindow && !petWindow.isDestroyed()) {
-                    // 1. පූසාව පෙන්නන්න (Don't auto-hide - user will hide it manually)
+                    // 1. show pet (Don't auto-hide - user will hide it manually)
                     petWindow.show();
                     petWindow.restore();
                     petWindow.focus();  // Bring window to front
@@ -80,7 +80,7 @@ function createPetWindow() {
     petWindow.setIgnoreMouseEvents(true, { forward: true });
 }
 
-// (Settings & Chat Windows - පරණ විදිහමයි)
+// (Settings & Chat Windows)
 function createSettingsWindow() {
     settingsWindow = new BrowserWindow({ width: 300, height: 400, show: false, frame: true, autoHideMenuBar: true, webPreferences: { nodeIntegration: true, contextIsolation: false } });
     settingsWindow.loadFile('settings.html');
@@ -113,12 +113,12 @@ app.whenReady().then(() => {
 
 // --- 3. SYSTEM LOGIC ---
 
-// User පූසාව Click කළාම Timer එක නවත්තන්න ඕනේ
+// Stop Timer Logic when user clicks/interacts
 ipcMain.on('stop-timer', () => {
     if (hideTimeout) {
         console.log("🛑 User Clicked! Timer Stopped.");
         clearTimeout(hideTimeout);
-        hideTimeout = null; // දැන් පූසා දිගටම ඉන්නවා
+        hideTimeout = null; // Now the pet stays visible
     }
 });
 
@@ -127,7 +127,7 @@ ipcMain.on('drag-start', (event, cursorOffset) => {
     clearInterval(dragInterval);
     const currentSize = petWindow.getSize();
     
-    // Drag කරනකොටත් Timer එක නවත්තන්න ඕනේ
+    // stop Timer when dragging starts
     if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
 
     dragInterval = setInterval(() => {
@@ -141,7 +141,7 @@ ipcMain.on('drag-start', (event, cursorOffset) => {
 
 ipcMain.on('drag-end', () => clearInterval(dragInterval));
 
-// Mouse Ignore & Settings Logic (පරණ ඒවා)
+// Mouse Ignore & Settings Logic
 ipcMain.on('set-ignore-mouse', (e, ignore) => {
     const win = BrowserWindow.fromWebContents(e.sender);
     win.setIgnoreMouseEvents(ignore, { forward: true });
@@ -151,15 +151,13 @@ ipcMain.on('update-settings', (event, data) => {
     if (data.type === 'size') {
         const s = parseInt(data.value);
         petWindow.setBounds({ width: s, height: s + 150 });
-        // const b = petWindow.getBounds();
-        // petWindow.setBounds({ x: b.x, y: b.y, width: s, height: s });
     }
     petWindow.webContents.send('apply-setting', data);
 });
 
 ipcMain.on('open-settings', () => settingsWindow.show());
 ipcMain.on('show-context-menu', () => {
-    // Right Click කළත් Timer එක නවත්තමු
+    // Right Click ,then stop Timer
     if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
     const menu = Menu.buildFromTemplate([
         { label: '💬 Live Chat', click: () => chatWindow.show() },
@@ -183,15 +181,9 @@ setInterval(async () => {
     try {
         // 1. BATTERY & CHARGING CHECK
         const battery = await si.battery();
-        
-        // Debug: බැටරි විස්තරේ හරියට එනවද කියලා බලාගන්න මේක දැම්මා
-        // console.log("Battery Info:", battery); 
-
-        // අපිට වැදගත් වෙන්නේ "වයර් එක ගහලද (acConnected)" කියන එකයි.
-        // Desktop වල බැටරි නෑ, ඒ නිසා battery.hasBattery චෙක් එක අයින් කළා හෝ acConnected බලනවා.
         const isPluggedIn = battery.acConnected || battery.isCharging;
 
-        // A. චාජරේ ගැහුවම (Plugged In)
+        // A.(Plugged In)
         if (isPluggedIn && !lastState.charging) {
             console.log("🔌 Detected: Power Connected");
             petWindow.webContents.send('backend-trigger', {
@@ -202,7 +194,7 @@ setInterval(async () => {
             return;
         }
 
-        // B. චාජරේ ගැලෙව්වම (Unplugged)
+        // B.(Unplugged)
         if (!isPluggedIn && lastState.charging) {
             console.log("🔌 Detected: Power Removed");
             lastState.charging = false;
@@ -213,8 +205,8 @@ setInterval(async () => {
             return;
         }
 
-        // C. බැටරි ලෝ නම් (Low Battery - Laptop only)
-        // Desktop වල battery.percent සමහර විට -1 වෙන්න පුළුවන්, ඒක හින්දා hasBattery චෙක් කරමු
+        // C.(Low Battery - Laptop only)
+        // If battery below 20% and not charging
         if (battery.hasBattery && !isPluggedIn && battery.percent < 20) {
              petWindow.webContents.send('backend-trigger', {
                 emotion: 'stress',
@@ -223,7 +215,7 @@ setInterval(async () => {
             return;
         }
 
-        // 2. INTERNET CHECK (මේක හරියට වැඩනේ, ඒක නිසා වෙනසක් නෑ)
+        // 2. INTERNET CHECK
         dns.lookup('google.com', (err) => {
             if (err && lastState.internet) {
                 petWindow.webContents.send('backend-trigger', {
@@ -244,4 +236,4 @@ setInterval(async () => {
         console.error("System Check Error:", error);
     }
 
-}, 5000); // ඉක්මනට ටෙස්ට් කරන්න තත්පර 5කට සැරයක් දැම්මා
+}, 5000);

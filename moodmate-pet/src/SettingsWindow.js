@@ -5,8 +5,8 @@ class SettingsWindow extends BrowserWindow {
         super({
             width: 300,
             height: 400,
-            show: false, // මුලින් හංගලා තියන්න
-            frame: true, // මේකට බෝඩර් එකක් ඕනේ
+            show: false, 
+            frame: true, 
             resizable: false,
             webPreferences: {
                 nodeIntegration: true,
@@ -16,7 +16,7 @@ class SettingsWindow extends BrowserWindow {
 
         this.loadFile('settings.html');
 
-        // Close කළාම කෙලින්ම අයින් නොවී හැංගෙන්න හදමු
+        // Close to tray instead of quitting
         this.on('close', (e) => {
             e.preventDefault();
             this.hide();

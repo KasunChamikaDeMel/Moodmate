@@ -4,10 +4,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
 
-# .env ෆයිල් එක ලෝඩ් කරන්න
 load_dotenv()
 
-# Key එක ෆයිල් එකෙන් අදින්න
 API_KEY = os.getenv("GROQ_API_KEY")
 
 app = Flask(__name__)
@@ -15,10 +13,8 @@ CORS(app)
 
 GROQ_API_KEY = API_KEY
 
-# 🧠 MEMORY: පරණ මැසේජ් මතක තියාගන්න තැන
 chat_history = []
 
-# 👇 අලුත් SYSTEM PROMPT එක (යාළුවෙක් වගේ)
 SYSTEM_PROMPT = """
 You are MoodMate, a supportive virtual companion who looks like a cute cat. 
 You are the user's close friend. Your main goal is to make the user feel heard and cared for. 
@@ -35,15 +31,12 @@ def chat():
     global chat_history
     
     user_message = request.json.get("message", "")
-
-    # 1. යූසර්ගේ මැසේජ් එක මෙමරි එකට දානවා
+# append user message to chat history
     chat_history.append({"role": "user", "content": user_message})
 
-    # 2. System Prompt එක + පරණ කතා කරපුවා (History) ඔක්කොම API එකට යවනවා
-    # (එතකොට තමයි එයාට මුල ඉඳන් කතාව තේරෙන්නේ)
+# prepare messages to send to the API
     messages_to_send = [{"role": "system", "content": SYSTEM_PROMPT}] + chat_history
 
-    # මතකය ඕනවට වඩා පිරෙන එක නවත්තන්න අන්තිම මැසේජ් 10 විතරක් යවමු (Optional Optimization)
     if len(messages_to_send) > 10:
         messages_to_send = [{"role": "system", "content": SYSTEM_PROMPT}] + chat_history[-10:]
 
@@ -58,10 +51,10 @@ def chat():
             headers={"Authorization": f"Bearer {GROQ_API_KEY}"}
         )
 
-        # API එකෙන් එන උත්තරේ ගන්නවා
+
         reply = r.json()["choices"][0]["message"]["content"]
 
-        # 3. පූසාගේ උත්තරෙත් මෙමරි එකට දානවා
+        # append assistant's reply to chat history
         chat_history.append({"role": "assistant", "content": reply})
 
         return jsonify({"reply": reply})

@@ -7,6 +7,7 @@ let lastPlayedAnim = null;
 let idleLoopTimer = null;
 let messageSequenceTimer = null;
 
+
 // --- 1. GIF DATABASE ---
 const allAnimations = [
     'assets/idle-1.json', 'assets/idle-2.json',

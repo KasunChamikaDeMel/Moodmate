@@ -144,7 +144,7 @@ function playRandomFromAll() {
 }
 
 
-// --- 3. BACKEND TRIGGER (Lassana UI Logic) ---
+// --- 3. BACKEND TRIGGER  ---
 ipcRenderer.on('backend-trigger', (event, data) => {
     resetIdleTimer(); 
     if (hideTimer) clearTimeout(hideTimer);
@@ -165,14 +165,14 @@ ipcRenderer.on('backend-trigger', (event, data) => {
         const randomSay = eData.pet_says[Math.floor(Math.random() * eData.pet_says.length)];
         const randomTip = eData.tips[Math.floor(Math.random() * eData.tips.length)];
 
-        // 🛑 STEP 1: "Pet Says" (ලස්සන Icon එකත් එක්ක)
+        // 🛑 STEP 1: "Pet Says"
         bubble.innerHTML = `
             <div class="emoji-icon">${eData.icon}</div>
             <div style="font-weight:600; color:#2d3436;">${randomSay}</div>
         `;
         bubble.style.display = 'block';
 
-        // 🛑 STEP 2: Tip එක (Badge එකක් එක්ක)
+        // 🛑 STEP 2: Tip 
         messageSequenceTimer = setTimeout(() => {
             bubble.innerHTML = `
                 <div class="tip-badge">💡 Quick Tip</div>
@@ -210,7 +210,7 @@ petAnim.addEventListener('mousedown', (e) => {
 
         playSpecificAnimation('assets/love-1.json'); 
         
-        // Click මැසේජ් එක
+        // Click
         bubble.innerHTML = `
             <div class="emoji-icon">❤️</div>
             <div style="font-weight:bold; color:#e17055;">I Love You!</div>

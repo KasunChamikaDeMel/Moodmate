@@ -23,12 +23,12 @@
     <script>
         const { ipcRenderer } = require('electron');
 
-        // Size වෙනස් කරනකොට
+        // Size change handler
         document.getElementById('size-slider').addEventListener('input', (e) => {
             ipcRenderer.send('update-settings', { type: 'size', value: e.target.value });
         });
 
-        // Opacity වෙනස් කරනකොට
+        // Opacity change handler
         document.getElementById('opacity-slider').addEventListener('input', (e) => {
             ipcRenderer.send('update-settings', { type: 'opacity', value: e.target.value });
         });

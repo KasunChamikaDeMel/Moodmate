@@ -7,9 +7,9 @@ function send() {
     if(!txt) return;
     
     addMsg(txt, 'user');
-    inp.value = ''; // Input එක හිස් කරන්න
+    inp.value = ''; // Input be empty after sending
 
-    // DeepSeek / Gemini (Port 5001) එකට යවනවා
+    //  Gemini (Port 5001) 
     fetch('http://127.0.0.1:5001/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -25,17 +25,17 @@ function addMsg(t, c) {
     d.className = `message ${c}`;
     d.innerText = t;
     box.appendChild(d);
-    // මැසේජ් එකක් ආපු ගමන් යටටම Scroll කරන්න
+    // scroll to bottom when message added
     box.scrollTop = box.scrollHeight;
 }
 
 // Button Click
 btn.onclick = send;
 
-// ENTER KEY LOGIC (මේක තමයි ඔයා ඉල්ලපු කොටස)
+// ENTER KEY LOGIC
 inp.addEventListener("keypress", function(event) {
     if (event.key === "Enter") {
-        event.preventDefault(); // Default Enter වැඩේ නවත්තලා
-        send(); // Send Function එක කෝල් කරනවා
+        event.preventDefault(); // Default Enter behavior stopped
+        send();
     }
 });
