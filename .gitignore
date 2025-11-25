@@ -5,3 +5,5 @@ venv/
 __pycache__/
 .env
 node_modules/
+/data/mood_history.json
+/data/pets.json
