@@ -378,19 +378,29 @@ class HomePage(QFrame):
         for port in ports_to_try:
             try:
                 url = f"http://localhost:{port}/trigger"
-                response = requests.post(url, json=data, timeout=2)
+                print(f"🔗 Attempting to send to pet on port {port}...")
+                response = requests.post(url, json=data, timeout=3)
                 if response.status_code == 200:
-                    print(f"🐾 Sent emotion '{pet_emotion}' to pet module on port {port}")
-                    return  # Success, exit
-            except requests.exceptions.ConnectionError:
+                    print(f"✅ Pet triggered successfully! Emotion '{pet_emotion}' sent to pet module on port {port}")
+                    print(f"   Response: {response.text}")
+                    return True  # Success, exit
+                else:
+                    print(f"⚠️ Pet returned status {response.status_code} on port {port}")
+            except requests.exceptions.ConnectionError as e:
+                print(f"⚠️ Connection error on port {port}: {str(e)[:50]}")
                 continue  # Try next port
             except requests.exceptions.Timeout:
+                print(f"⚠️ Timeout on port {port}")
                 continue  # Try next port
             except Exception as e:
+                print(f"⚠️ Error on port {port}: {str(e)[:50]}")
                 continue  # Try next port
         
         # If all ports failed
-        print(f"⚠️ Pet module not responding on any port ({ports_to_try}) - emotion not sent")
+        print(f"❌ Pet module not responding on any port ({ports_to_try})")
+        print(f"   Make sure the Electron pet app is running (should start with backend)")
+        print(f"   Check if pet app window is visible in system tray")
+        return False
     
     def start_emotion_buffer(self):
         """Start collecting emotions for 1 minute"""
@@ -437,15 +447,15 @@ class HomePage(QFrame):
         except Exception as e:
             print(f"Failed to save emotion to history: {e}")
         
-        # Send emotion to moodmate-pet module (only if it's one of the 3 target emotions)
-        # Pet app should already be running (started when detection began)
+        # Only trigger notification and pet if most common emotion is stress, angry, or sleep
         if most_common_emotion in ['stress', 'angry', 'sleep']:
+            print(f"🔔 Most common emotion is '{most_common_emotion}' - TRIGGERING NOTIFICATION AND PET")
+            
+            # Trigger pet FIRST (before notification)
             print(f"🐾 Triggering pet for most common emotion: {most_common_emotion}")
             self.send_emotion_to_pet(most_common_emotion)
-        
-        # Only trigger notification if most common emotion is stress, angry, or sleep
-        if most_common_emotion in ['stress', 'angry', 'sleep']:
-            print(f"🔔 Most common emotion is '{most_common_emotion}' - TRIGGERING NOTIFICATION")
+            
+            # Then trigger notification (this will also update UI)
             # Update UI - this will trigger notification through sidebar.py
             self.update_emotion(most_common_emotion)
         else:

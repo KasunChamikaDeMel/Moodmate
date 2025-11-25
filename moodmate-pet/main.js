@@ -9,12 +9,50 @@ let hideTimeout = null; // timer
 
 // --- 1. SERVER (Timer Logic gets here) ---
 const server = http.createServer((req, res) => {
+    console.log(`📥 Received ${req.method} request to ${req.url}`);
+    
     if (req.method === 'POST' && req.url === '/trigger') {
         let body = '';
         req.on('data', chunk => { body += chunk.toString(); });
         req.on('end', () => {
             try {
                 const data = JSON.parse(body);
+                console.log(`📨 Received emotion trigger:`, data);
+
+                if (!petWindow) {
+                    console.log("⚠️ Pet window not created yet, creating now...");
+                    // Wait for app to be ready before creating window
+                    if (app.isReady()) {
+                        createPetWindow();
+                        // Wait a moment for window to be ready
+                        setTimeout(() => {
+                            if (petWindow && !petWindow.isDestroyed()) {
+                                petWindow.show();
+                                petWindow.restore();
+                                petWindow.focus();
+                                petWindow.webContents.send('backend-trigger', data);
+                                console.log(`🐾 Pet window created and shown with emotion: ${data.emotion || 'unknown'}`);
+                            }
+                        }, 500);
+                    } else {
+                        console.log("⚠️ App not ready yet, will create window when ready");
+                        app.whenReady().then(() => {
+                            createPetWindow();
+                            setTimeout(() => {
+                                if (petWindow && !petWindow.isDestroyed()) {
+                                    petWindow.show();
+                                    petWindow.restore();
+                                    petWindow.focus();
+                                    petWindow.webContents.send('backend-trigger', data);
+                                    console.log(`🐾 Pet window created and shown with emotion: ${data.emotion || 'unknown'}`);
+                                }
+                            }, 500);
+                        });
+                    }
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ status: 'Triggered', emotion: data.emotion, note: 'Window being created' }));
+                    return;
+                }
 
                 if (petWindow && !petWindow.isDestroyed()) {
                     // 1. show pet (Don't auto-hide - user will hide it manually)
@@ -27,15 +65,23 @@ const server = http.createServer((req, res) => {
                     if (hideTimeout) clearTimeout(hideTimeout);
                     hideTimeout = null;  // Pet stays visible until user hides it
                     
-                    console.log("🐾 Pet window shown - user can hide it manually");
+                    console.log(`🐾 Pet window shown with emotion: ${data.emotion || 'unknown'}`);
+                } else {
+                    console.log("❌ Pet window is destroyed or not available");
                 }
 
                 res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ status: 'Triggered' }));
+                res.end(JSON.stringify({ status: 'Triggered', emotion: data.emotion }));
             } catch (e) {
-                res.writeHead(400); res.end('Error');
+                console.error("❌ Error processing trigger:", e);
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Invalid request' }));
             }
         });
+    } else {
+        // Handle other requests (like GET for health check)
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'Pet server running', port: actualPort }));
     }
 });
 // Store the actual port being used

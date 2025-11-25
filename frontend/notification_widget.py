@@ -277,6 +277,7 @@ class WindowsToastNotification(QWidget):
         self.setup_shadow()
         
         self.dismiss_timer = QTimer()
+        self.dismiss_timer.setSingleShot(True)  # Only fire once
         self.dismiss_timer.timeout.connect(self.hide_notification)
     
     def setup_shadow(self):
@@ -417,8 +418,17 @@ class WindowsToastNotification(QWidget):
         self.pet_type = pet_type
         self.pet_widget.set_pet_type(pet_type)
     
-    def show_notification(self, emotion, source="face"):
+    def show_notification(self, emotion, source="face", duration=None):
+        # Stop any existing timer first
+        self.dismiss_timer.stop()
+        
         self.current_emotion = emotion.lower()
+        
+        # Get duration from settings if not provided (default 20 seconds)
+        if duration is None:
+            duration = 20000  # Default 20 seconds in milliseconds
+        else:
+            duration = duration * 1000  # Convert seconds to milliseconds
         
         emotion_data = {
             "stress": {
@@ -493,7 +503,9 @@ class WindowsToastNotification(QWidget):
         
         self.show()
         self.slide_animation.start()
-        self.dismiss_timer.start(20000)
+        # Start timer with the specified duration (ensure it's stopped first)
+        self.dismiss_timer.stop()
+        self.dismiss_timer.start(int(duration))
     
     def hide_notification(self):
         self.dismiss_timer.stop()

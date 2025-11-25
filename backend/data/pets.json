@@ -6,7 +6,11 @@
     "mood": "angry",
     "level": 1,
     "created_at": 1760800223.5383365,
+<<<<<<< Updated upstream
     "last_updated": "2025-11-22T20:06:04.456619",
+=======
+    "last_updated": "2025-11-24T17:52:30.454550",
+>>>>>>> Stashed changes
     "pet_mood": "neutral",
     "hunger": 5,
     "happiness": 100,

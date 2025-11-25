@@ -146,20 +146,25 @@ function playRandomFromAll() {
 
 // --- 3. BACKEND TRIGGER  ---
 ipcRenderer.on('backend-trigger', (event, data) => {
+    console.log('🎯 Received backend-trigger event:', data);
     resetIdleTimer(); 
     if (hideTimer) clearTimeout(hideTimer);
     if (messageSequenceTimer) clearTimeout(messageSequenceTimer);
     
     isInteracting = false; 
     const emotion = data.emotion || 'happy';
+    console.log(`🎭 Processing emotion: ${emotion}`);
 
     if (uniqueAnimations[emotion]) {
+        console.log(`✅ Found animation for emotion: ${emotion}`);
         playSpecificAnimation(uniqueAnimations[emotion]);
     } else {
+        console.log(`⚠️ No animation found for emotion: ${emotion}, using default`);
         playSpecificAnimation('assets/happy-1.json');
     }
 
     const eData = emotionData[emotion];
+    console.log(`📋 Emotion data found:`, eData ? 'Yes' : 'No');
     
     if (eData) {
         const randomSay = eData.pet_says[Math.floor(Math.random() * eData.pet_says.length)];

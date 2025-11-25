@@ -167,10 +167,17 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
         # Set the pet type in notification
         self.notification_window.set_pet_type(self.pet_type)
         
-        # Show notification
-        self.notification_window.show_notification(emotion, "detection")
+        # Get duration from notification settings
+        try:
+            settings = self.notification_settings_page.get_current_settings()
+            duration = settings.get('duration', 20)  # Default 20 seconds
+        except:
+            duration = 20  # Fallback to 20 seconds
         
-        print(f"🔔 Notification shown for: {emotion}")
+        # Show notification with duration from settings
+        self.notification_window.show_notification(emotion, "detection", duration=duration)
+        
+        print(f"🔔 Notification shown for: {emotion} (duration: {duration}s)")
     
     def handle_notification_action(self, action):
         """Handle notification button clicks"""
@@ -257,7 +264,6 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
             self.home_2: self.home_page,
             self.pet_1: self.pet_page,
             self.pet_2: self.pet_page,
-            # NOTIFICATION SETTINGS PAGE (replaces detection)
             self.startdetection_1: self.notification_settings_page,
             self.startdetection_2: self.notification_settings_page,
             self.history_1: self.history_page,

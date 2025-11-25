@@ -17,7 +17,7 @@ emotions = {
     "05": "angry",
     "06": "stress"      #Emotions that wants to predict
 }
-dataset_path = r"C:\Users\User\Desktop\Moodmate\voice dataset"
+dataset_path = r"C:\Users\User\Desktop\Moodmate\backend\voice\voice dataset"
 
 # FEATURE EXTRACTION
 

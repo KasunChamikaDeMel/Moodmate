@@ -1,13 +1,3 @@
-# -*- coding: utf-8 -*-
-
-################################################################################
-## Form generated from reading UI file 'main.ui'
-##
-## Created by: Qt User Interface Compiler version 6.9.0
-##
-## WARNING! All changes made in this file will be lost when recompiling UI file!
-################################################################################
-
 from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
     QMetaObject, QObject, QPoint, QRect,
     QSize, QTime, QUrl, Qt)
@@ -93,7 +83,7 @@ class Ui_MainWindow(object):
         self.startdetection_1 = QPushButton(self.icon_only_widgect)
         self.startdetection_1.setObjectName(u"startdetection_1")
         icon2 = QIcon()
-        icon2.addFile(u":/icon/slr-camera-48 (1).ico", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        icon2.addFile(u":/icon/menu-4-48.ico", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
         self.startdetection_1.setIcon(icon2)
         self.startdetection_1.setCheckable(True)
         self.startdetection_1.setAutoExclusive(True)
