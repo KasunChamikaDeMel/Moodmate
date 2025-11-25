@@ -1,146 +1,129 @@
-from PySide6.QtWidgets import (QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QTextBrowser, QSizePolicy, QSpacerItem)
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtWidgets import (QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, 
+                              QTextBrowser, QSizePolicy, QSpacerItem, QScrollArea, QWidget)
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
+import os
 
 class HelpPage(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setup_ui()
 
-
-    
     def setup_ui(self):
         self.setStyleSheet("background-color: #3a404d;")
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(20)
         
-        # Title
+        # --- MAIN LAYOUT (WITH SCROLL) ---
+        # ScrollArea to make the entire page scrollable
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        
+        # Content widget inside the scroll area
+        content_widget = QWidget()
+        content_widget.setStyleSheet("background: transparent;")
+        main_layout = QVBoxLayout(content_widget)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(15) # Spacing between sections
+        
+        # --- Title ---
         title = QLabel("Help & Support")
-        title.setStyleSheet("""
-            QLabel {
-                font-size: 24px;
-                color: white;
-                font-weight: bold;
-            }
-        """)
-        layout.addWidget(title)
+        title.setStyleSheet("font-size: 22px; color: white; font-weight: bold; margin-bottom: 5px;")
+        main_layout.addWidget(title)
         
-        # Help Content Card
-        help_card = QFrame()
-        help_card.setStyleSheet("""
-            QFrame {
-                background-color: #424758;
-                border-radius: 15px;
+        # ==========================================================
+        # 1. ABOUT SECTION (COMPACT)
+        # ==========================================================
+        about_card = QFrame()
+        about_card.setStyleSheet("background-color: #424758; border-radius: 10px; padding: 10px;")
+        about_layout = QVBoxLayout(about_card)
+        about_layout.setSpacing(5)
+        
+        about_lbl = QLabel("About MoodMate")
+        about_lbl.setStyleSheet("font-size: 16px; color: white; font-weight: bold;")
+        
+        about_desc = QLabel("Your AI emotional companion for mental wellness.")
+        about_desc.setStyleSheet("font-size: 13px; color: #cccccc;")
+        about_desc.setWordWrap(True)
+        
+        about_layout.addWidget(about_lbl)
+        about_layout.addWidget(about_desc)
+        main_layout.addWidget(about_card)
+
+        # ==========================================================
+        # 2. DOCUMENTATION (README) - FIXED HEIGHT
+        # ==========================================================
+        doc_group_title = QLabel("📖 Documentation")
+        doc_group_title.setStyleSheet("font-size: 16px; color: white; font-weight: bold; margin-top: 5px;")
+        main_layout.addWidget(doc_group_title)
+
+        # Logic to find README.md
+        readme_text = "# Documentation Not Found"
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        possible_paths = [
+            os.path.join(current_dir, "..", "README.md"),
+            os.path.join(current_dir, "README.md")
+        ]
+        
+        for path in possible_paths:
+            if os.path.exists(path):
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        readme_text = f.read()
+                    break 
+                except: pass
+
+        self.doc_browser = QTextBrowser()
+        self.doc_browser.setMarkdown(readme_text)
+        self.doc_browser.setOpenExternalLinks(True)
+        
+        # Fixed height
+        self.doc_browser.setFixedHeight(350) 
+        
+        self.doc_browser.setStyleSheet("""
+            QTextBrowser {
+                background-color: #2c3e50;
+                color: white;
+                border: 1px solid #5c6270;
+                border-radius: 10px;
                 padding: 10px;
+                font-size: 13px;
             }
         """)
+        main_layout.addWidget(self.doc_browser)
+
+        # ==========================================================
+        # 3. CONTACT SECTION (COMPACT)
+        # ==========================================================
+        contact_card = QFrame()
+        contact_card.setStyleSheet("background-color: #424758; border-radius: 10px; padding: 10px;")
+        contact_layout = QHBoxLayout(contact_card) # Horizontal
         
-        help_layout = QVBoxLayout(help_card)
-        help_layout.setSpacing(10)
+        contact_info = QLabel("Need Help? Email: <b>support@moodmate.app</b>")
+        contact_info.setStyleSheet("font-size: 13px; color: #cccccc;")
+        contact_info.setTextFormat(Qt.RichText)
         
-        # About Section
-        about_title = QLabel("About MoodMate")
-        about_title.setStyleSheet("""
-            QLabel {
-                font-size: 18px;
-                color: white;
-                font-weight: bold;
-            }
-        """)
-        
-        about_text = QLabel("""
-            MoodMate is your emotional companion designed to detect and respond to your feelings in real-time.
-            Our app helps you understand your emotions through facial recognition, voice analysis, and text input.
-        """)
-        about_text.setStyleSheet("font-size: 14px; color: #cccccc;")
-        about_text.setWordWrap(True)
-        
-        # Documentation Section
-        doc_title = QLabel("Documentation")
-        doc_title.setStyleSheet("""
-            QLabel {
-                font-size: 18px;
-                color: white;
-                font-weight: bold;
-                padding-top: 2px;
-            }
-        """)
-        
-        doc_text = QLabel("""
-            Learn how to get the most out of MoodMate with our comprehensive guides and tutorials.
-        """)
-        doc_text.setStyleSheet("font-size: 14px; color: #cccccc;")
-        doc_text.setWordWrap(True)
-        
-        doc_button = QPushButton("Open Documentation")
-        doc_button.setIcon(QIcon(":/icons/book.png"))
-        doc_button.setStyleSheet("""
+        contact_btn = QPushButton("Contact")
+        contact_btn.setIcon(QIcon(":/icons/mail.png"))
+        contact_btn.setStyleSheet("""
             QPushButton {
-                background-color: #6c5ce7;
-                color: white;
-                border: none;
-                border-radius: 8px;
-                padding: 4px 8px;
-                font-size: 14px;
-                max-width: 200px;
+                background-color: #6c5ce7; color: white; border-radius: 6px;
+                padding: 6px 15px; font-size: 12px; font-weight: bold;
             }
-            QPushButton:hover {
-                background-color: #7d6ee8;
-            }
-            QPushButton:pressed {
-                background-color: #5a4cd6;
-            }
+            QPushButton:hover { background-color: #7d6ee8; }
         """)
         
-        # Contact Section
-        contact_title = QLabel("Contact Support")
-        contact_title.setStyleSheet("""
-            QLabel {
-                font-size: 18px;
-                color: white;
-                font-weight: bold;
-                padding-top: 10px;
-            }
-        """)
+        contact_layout.addWidget(contact_info)
+        contact_layout.addStretch()
+        contact_layout.addWidget(contact_btn)
         
-        contact_text = QLabel("""
-            Having issues or suggestions? Our support team is here to help!
-            Email: support@moodmate.app
-        """)
-        contact_text.setStyleSheet("font-size: 14px; color: #cccccc;")
-        contact_text.setWordWrap(True)
+        main_layout.addWidget(contact_card)
         
-        contact_button = QPushButton("Contact Us")
-        contact_button.setIcon(QIcon(":/icons/mail.png"))
-        contact_button.setStyleSheet("""
-            QPushButton {
-                background-color: #6c5ce7;
-                color: white;
-                border: none;
-                border-radius: 8px;
-                padding: 4px 8px;
-                font-size: 14px;
-                max-width: 100px;
-            }
-            QPushButton:hover {
-                background-color: #7d6ee8;
-            }
-            QPushButton:pressed {
-                background-color: #5a4cd6;
-            }
-        """)
-        
-        # Add sections to help layout
-        help_layout.addWidget(about_title)
-        help_layout.addWidget(about_text)
-        help_layout.addWidget(doc_title)
-        help_layout.addWidget(doc_text)
-        help_layout.addWidget(doc_button, 0, Qt.AlignLeft)
-        help_layout.addWidget(contact_title)
-        help_layout.addWidget(contact_text)
-        help_layout.addWidget(contact_button, 0, Qt.AlignLeft)
-        help_layout.addStretch()
-        
-        layout.addWidget(help_card)
-        layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Minimum, QSizePolicy.Expanding))
+        # Spacer
+        main_layout.addStretch()
+
+        # Final Setup
+        scroll_area.setWidget(content_widget)
+        outer_layout.addWidget(scroll_area)

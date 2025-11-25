@@ -1,31 +1,10 @@
 {
   "1": {
-    "id": "1",
-    "name": "Moody",
-    "type": "virtual_pet",
-    "mood": "angry",
-    "level": 1,
-    "created_at": 1760800223.5383365,
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-    "last_updated": "2025-11-22T20:06:04.456619",
-=======
-    "last_updated": "2025-11-24T17:52:30.454550",
->>>>>>> Stashed changes
-=======
-    "last_updated": "2025-11-24T17:52:30.454550",
->>>>>>> Stashed changes
-    "pet_mood": "neutral",
-    "hunger": 5,
-    "happiness": 100,
-    "pet_exp": 67,
-    "last_fed": "2025-11-02T14:10:20.760093",
-    "pet_name": "Tommy",
-    "pet_type": "bunny",
+    "pet_name": "Buddy",
+    "pet_type": "cat",
     "pet_level": 1,
-    "energy": 15,
-    "health": 100,
-    "cleanliness": 85,
-    "intelligence": 65
+    "pet_exp": 0,
+    "pet_mood": "angry",
+    "last_updated": "2025-11-26T00:58:19.254959"
   }
 }
