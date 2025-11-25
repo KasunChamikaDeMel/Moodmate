@@ -500,7 +500,7 @@ class Ui_MainWindow(object):
         self.label_3.setText(QCoreApplication.translate("MainWindow", u"SideBar", None))
         self.home_2.setText(QCoreApplication.translate("MainWindow", u"Home", None))
         self.pet_2.setText(QCoreApplication.translate("MainWindow", u"Pet", None))
-        self.startdetection_2.setText(QCoreApplication.translate("MainWindow", u"Custom Notification", None))
+        self.startdetection_2.setText(QCoreApplication.translate("MainWindow", u"Notification", None))
         self.history_2.setText(QCoreApplication.translate("MainWindow", u"History", None))
         self.settings_2.setText(QCoreApplication.translate("MainWindow", u"Settings", None))
         self.profile_2.setText(QCoreApplication.translate("MainWindow", u"Profile", None))
