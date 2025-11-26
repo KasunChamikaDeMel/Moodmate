@@ -502,6 +502,14 @@ class WindowsToastNotification(QWidget):
         self.slide_animation.setEndValue(QPoint(end_x, end_y))
         
         self.show()
+        # ========================================
+        try:
+            self.slide_animation.finished.disconnect()
+        except:
+            pass
+        # =======================================
+        
+        
         self.slide_animation.start()
         # Start timer with the specified duration (ensure it's stopped first)
         self.dismiss_timer.stop()
@@ -515,6 +523,14 @@ class WindowsToastNotification(QWidget):
         
         self.slide_animation.setStartValue(start_pos)
         self.slide_animation.setEndValue(QPoint(start_pos.x(), end_y))
+        # ========================================
+        try:
+            self.slide_animation.finished.disconnect()
+        except:
+            pass
+            
+        # self.slide_animation.finished.connect(self.hide)
+        # ========================================
         self.slide_animation.finished.connect(self.hide)
         self.slide_animation.start()
         self.closed.emit()
