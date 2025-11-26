@@ -18,6 +18,13 @@ const allAnimations = [
     'assets/chargeon.json', 'assets/wifion.json'
 ];
 
+const petSounds = {
+    happy: new Audio('./assets/sounds/happy.mp3'),
+    stress: new Audio('./assets/sounds/stress.mp3'),
+    angry: new Audio('./assets/sounds/angry.mp3'),
+    sleep: new Audio('./assets/sounds/sleep.mp3'),
+};
+
 const uniqueAnimations = {
     stress: 'assets/sleep-1.json',
     angry: 'assets/idle-2.json',
@@ -30,6 +37,25 @@ const uniqueAnimations = {
     wifion: 'assets/wifion.json'
 
 };
+
+// --- Play Sound Function ---
+let isSoundEnabled = localStorage.getItem('petSound') !== 'false';
+function playEmotionSound(emotion) {
+    if (!isSoundEnabled) return;
+    // stop playing (Optional)
+    // Object.values(petSounds).forEach(s => { s.pause(); s.currentTime = 0; });
+
+    // Play the relevant sound
+    if (petSounds[emotion]) {
+        try {
+            petSounds[emotion].currentTime = 0; // From the beginning
+            petSounds[emotion].play();
+            console.log(`🔊 Playing sound for: ${emotion}`);
+        } catch (err) {
+            console.error("Audio Play Error:", err);
+        }
+    }
+}
 
 // --- 2. FULL DATA SET ---
 const emotionData = {
@@ -155,6 +181,9 @@ ipcRenderer.on('backend-trigger', (event, data) => {
     const emotion = data.emotion || 'happy';
     console.log(`🎭 Processing emotion: ${emotion}`);
 
+    // Play sound for the emotion
+    playEmotionSound(emotion);
+
     if (uniqueAnimations[emotion]) {
         console.log(`✅ Found animation for emotion: ${emotion}`);
         playSpecificAnimation(uniqueAnimations[emotion]);
@@ -243,4 +272,12 @@ window.addEventListener('mouseup', () => {
 petAnim.addEventListener('mouseenter', () => ipcRenderer.send('set-ignore-mouse', false));
 petAnim.addEventListener('mouseleave', () => ipcRenderer.send('set-ignore-mouse', true));
 window.addEventListener('contextmenu', (e) => { e.preventDefault(); ipcRenderer.send('show-context-menu'); });
-ipcRenderer.on('apply-setting', (event, data) => { if (data.type === 'opacity') petAnim.style.opacity = data.value; });
+ipcRenderer.on('apply-setting', (event, data) => { 
+    if (data.type === 'opacity') {petAnim.style.opacity = data.value; }
+    // Sound Setting
+    if (data.type === 'sound') {
+        isSoundEnabled = data.value;
+        localStorage.setItem('petSound', data.value); // Remember the setting
+        console.log(`🔊 Sound setting updated: ${isSoundEnabled}`);
+    }
+});
