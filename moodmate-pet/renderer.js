@@ -21,6 +21,7 @@ const petSounds = {
     stress: new Audio('./assets/sounds/popup.mp3'),
     angry: new Audio('./assets/sounds/popup.mp3'),
     sleep: new Audio('./assets/sounds/sleep.mp3'),
+    sleepy: new Audio('./assets/sounds/sleep.mp3'),
     poweroff: new Audio('./assets/sounds/popup.mp3'),
     poweron: new Audio('./assets/sounds/popup.mp3'),
     wifioff: new Audio('./assets/sounds/popup.mp3'),
