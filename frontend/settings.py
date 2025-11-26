@@ -9,6 +9,8 @@ from PySide6.QtWidgets import (QFrame, QLabel, QPushButton, QVBoxLayout,
                               QMessageBox)
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QApplication
+from theme_manager import ThemeManager
 from api_client import APIClient
 import json
 import os
@@ -118,6 +120,12 @@ class SettingsPage(QFrame):
             }
         """)
         self.theme_combo.currentTextChanged.connect(self.on_theme_changed)
+
+        # Option: apply theme globally or only to this page
+        self.apply_global_check = QCheckBox("Apply theme to entire application")
+        self.apply_global_check.setChecked(True)
+        self.apply_global_check.setStyleSheet("QCheckBox { color: #cccccc; }")
+        appearance_layout.addWidget(self.apply_global_check)
         
         appearance_layout.addWidget(theme_label)
         appearance_layout.addWidget(self.theme_combo)
@@ -399,8 +407,31 @@ class SettingsPage(QFrame):
     
     def on_theme_changed(self, theme_name):
         """Handle theme change immediately"""
-        self.apply_theme(theme_name)
-        print(f"🎨 Theme preview: {theme_name}")
+        # If user wants global change, use ThemeManager to set app stylesheet
+        if getattr(self, 'apply_global_check', None) and self.apply_global_check.isChecked():
+            try:
+                app = QApplication.instance()
+                if app is not None:
+                    # Mark app to force clearing local widget styles, then apply
+                    setattr(app, '_force_clear_local_styles', True)
+                    ThemeManager.apply_theme(app, theme_name)
+                    # Remove the temporary flag so future calls don't always clear
+                    try:
+                        delattr(app, '_force_clear_local_styles')
+                    except Exception:
+                        pass
+                    print(f"🎨 Global theme applied: {theme_name}")
+                else:
+                    # Fallback to local apply
+                    self.apply_theme_local(theme_name)
+                    print(f"🎨 Theme preview (local): {theme_name}")
+            except Exception as e:
+                print(f"Error applying global theme: {e}")
+                self.apply_theme_local(theme_name)
+        else:
+            # Only preview on this page
+            self.apply_theme_local(theme_name)
+            print(f"🎨 Theme preview (local): {theme_name}")
     
     def on_notification_toggle(self, state):
         """Handle notification enable/disable"""
@@ -499,13 +530,63 @@ class SettingsPage(QFrame):
             }
         }
         
-        if theme_name in themes:
-            theme = themes[theme_name]
-            
-            # Update main frame background
-            self.setStyleSheet(f"background-color: {theme['background']};")
-            
-            print(f"🎨 Theme applied: {theme_name}")
+        # Backwards-compatible wrapper: respect global checkbox
+        if getattr(self, 'apply_global_check', None) and self.apply_global_check.isChecked():
+            app = QApplication.instance()
+            if app is not None:
+                setattr(app, '_force_clear_local_styles', True)
+                ThemeManager.apply_theme(app, theme_name)
+                try:
+                    delattr(app, '_force_clear_local_styles')
+                except Exception:
+                    pass
+                return
+
+        # Otherwise apply theme only to this page
+        self.apply_theme_local(theme_name)
+
+    def apply_theme_local(self, theme_name):
+        """Apply theme only to this settings page (no global changes)."""
+        themes_local = {
+            "Dark": {
+                "background": "#3a404d",
+                "card": "#424758",
+                "accent": "#6c5ce7",
+                "text": "#ffffff"
+            },
+            "Light": {
+                "background": "#f0f0f0",
+                "card": "#ffffff",
+                "accent": "#6c5ce7",
+                "text": "#2c3e50"
+            },
+            "Blue": {
+                "background": "#2c3e50",
+                "card": "#34495e",
+                "accent": "#3498db",
+                "text": "#ecf0f1"
+            },
+            "Purple": {
+                "background": "#2d1b4e",
+                "card": "#3d2b5e",
+                "accent": "#9b59b6",
+                "text": "#ffffff"
+            }
+        }
+
+        if theme_name in themes_local:
+            th = themes_local[theme_name]
+            # Apply only main background for this page and adjust the scroll area/widget style
+            self.setStyleSheet(f"background-color: {th['background']};")
+            # Update children group boxes/cards by setting a lightweight stylesheet
+            for child in self.findChildren(QWidget):
+                # Skip top-level main window
+                try:
+                    child.setStyleSheet("")
+                except Exception:
+                    pass
+            # Keep the detailed widget styles intact; only change this page background
+            print(f"🎨 Local theme applied: {theme_name}")
             self.theme_changed.emit(theme_name)
     
     def reset_to_defaults(self):

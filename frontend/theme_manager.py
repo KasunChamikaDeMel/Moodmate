@@ -3,7 +3,7 @@ Global Theme Manager for MoodMate
 Place this in: frontend/theme_manager.py
 """
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QWidget
 from PySide6.QtGui import QPalette, QColor
 from PySide6.QtCore import Qt
 
@@ -268,8 +268,35 @@ class ThemeManager:
         """Apply theme to entire application"""
         ThemeManager.current_theme = theme_name
         stylesheet = ThemeManager.get_stylesheet(theme_name)
+
+        # Clear locally-applied widget styles if requested via keyword
+        # If caller passes force_clear_local=True, remove per-widget styles
+        # so the application stylesheet can take full effect.
+        force_clear = False
+        try:
+            # Expect optional attribute set on app for backward compatibility
+            force_clear = getattr(app, '_force_clear_local_styles', False)
+        except Exception:
+            force_clear = False
+
+        if force_clear:
+            try:
+                for top in app.topLevelWidgets():
+                    try:
+                        top.setStyleSheet("")
+                    except Exception:
+                        pass
+                    # Clear children styles
+                    for child in top.findChildren(QWidget):
+                        try:
+                            child.setStyleSheet("")
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
         app.setStyleSheet(stylesheet)
-        print(f"✅ Theme applied: {theme_name}")
+        print(f"✅ Theme applied: {theme_name} (force_clear_local={force_clear})")
     
     @staticmethod
     def get_color(color_key, theme_name=None):

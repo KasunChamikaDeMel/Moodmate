@@ -78,6 +78,16 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
         self.settings_page.pet_changed.connect(self.on_pet_changed)
         self.settings_page.theme_changed.connect(self.on_theme_changed)
         self.notification_settings_page.settings_changed.connect(self.on_notification_settings_changed)
+        # Connect header search and profile buttons
+        try:
+            self.lineEdit.returnPressed.connect(self.on_search)
+            self.pushButton_18.clicked.connect(self.on_search)
+        except Exception:
+            pass
+        try:
+            self.profile_3.clicked.connect(lambda: self.switch_page(self.profile_page))
+        except Exception:
+            pass
         
         # Setup sidebar
         self.icon_name_widgect.setHidden(True)
@@ -214,6 +224,21 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
     def on_theme_changed(self, theme_name):
         """Handle theme changes"""
         print(f"🎨 Theme changed to: {theme_name}")
+        # Apply the theme centrally so it persists across pages
+        try:
+            from theme_manager import ThemeManager
+            app = QApplication.instance()
+            if app is not None:
+                # Request ThemeManager to clear local widget styles so global stylesheet takes effect
+                setattr(app, '_force_clear_local_styles', True)
+                ThemeManager.apply_theme(app, theme_name)
+                try:
+                    delattr(app, '_force_clear_local_styles')
+                except Exception:
+                    pass
+                print(f"✅ Global theme applied from sidebar: {theme_name}")
+        except Exception as e:
+            print(f"Failed to apply global theme: {e}")
     
     def on_notification_settings_changed(self, settings):
         """Handle notification settings changes"""
@@ -221,6 +246,47 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
         self.pet_type = settings.get('pet_type', 'cat')
         self.notification_window.set_pet_type(self.pet_type)
         print(f"🔔 Notification settings updated: {settings}")
+
+    def on_search(self):
+        """Handle header search: query mood history and show results in History page."""
+        query = ''
+        try:
+            query = self.lineEdit.text().strip()
+        except Exception:
+            pass
+
+        if not query:
+            QMessageBox.information(self, "Search", "Please enter a search term (mood or date).")
+            return
+
+        # Fetch full history and filter locally
+        try:
+            all_history = APIClient.get_mood_history(self.user_id)
+            if isinstance(all_history, dict) and 'error' in all_history:
+                QMessageBox.critical(self, "Search Error", f"Failed to fetch history: {all_history.get('error')}")
+                return
+
+            q = query.lower()
+            filtered = []
+            for e in all_history:
+                mood = str(e.get('mood', '')).lower()
+                source = str(e.get('source', '')).lower()
+                ts = str(e.get('timestamp', '')).lower()
+                # Match if query is in mood, source or timestamp
+                if q in mood or q in source or q in ts:
+                    filtered.append(e)
+
+            # If no results, inform user
+            if not filtered:
+                QMessageBox.information(self, "Search", f"No results for '{query}'")
+                return
+
+            # Show results in history page
+            self.history_page.all_history_data = sorted(filtered, key=lambda x: x.get('timestamp', ''), reverse=True)
+            self.switch_page(self.history_page)
+            self.history_page.update_ui_with_data()
+        except Exception as ex:
+            QMessageBox.critical(self, "Search Error", f"An error occurred: {str(ex)}")
     
     def check_backend_connection(self):
         """Check if backend is running"""

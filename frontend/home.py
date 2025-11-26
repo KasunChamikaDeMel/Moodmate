@@ -60,7 +60,7 @@ class HomePage(QFrame):
         self.greeting_label = QLabel()
         self.greeting_label.setStyleSheet("""
             QLabel {
-                font-size: 26px;
+                font-size: 48px;
                 color: white;
                 font-weight: bold;
             }
@@ -70,14 +70,14 @@ class HomePage(QFrame):
         self.mood_label = QLabel()
         self.mood_label.setStyleSheet("""
             QLabel {
-                font-size: 20px;
-                font-weight: medium;
+                font-size: 34px;
+                font-weight: 600;
             }
         """)
         self.mood_label.setAlignment(Qt.AlignCenter)
         
         self.pet_reaction_label = QLabel()
-        self.pet_reaction_label.setStyleSheet("font-size: 16px; color: #cccccc;")
+        self.pet_reaction_label.setStyleSheet("font-size: 26px; color: #cccccc;")
         self.pet_reaction_label.setAlignment(Qt.AlignCenter)
         
         greeting_layout.addWidget(self.greeting_label)
