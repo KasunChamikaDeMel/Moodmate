@@ -13,8 +13,7 @@ const allAnimations = [
     'assets/idle-1.json', 'assets/idle-2.json',
     'assets/idle-3.json', 'assets/idle-4.json',
     'assets/idle-5.json', 'assets/idle-6.json',
-    'assets/idle-7.json',
-    'assets/happy-1.json', 'assets/sleep-1.json',
+    'assets/idle-7.json', 'assets/sleep-1.json',
     'assets/chargeon.json', 'assets/wifion.json'
 ];
 
