@@ -19,10 +19,14 @@ const allAnimations = [
 ];
 
 const petSounds = {
-    happy: new Audio('./assets/sounds/happy.mp3'),
-    stress: new Audio('./assets/sounds/stress.mp3'),
-    angry: new Audio('./assets/sounds/angry.mp3'),
+    stress: new Audio('./assets/sounds/popup.mp3'),
+    angry: new Audio('./assets/sounds/popup.mp3'),
     sleep: new Audio('./assets/sounds/sleep.mp3'),
+    poweroff: new Audio('./assets/sounds/popup.mp3'),
+    poweron: new Audio('./assets/sounds/popup.mp3'),
+    wifioff: new Audio('./assets/sounds/popup.mp3'),
+    wifion: new Audio('./assets/sounds/popup.mp3')
+    
 };
 
 const uniqueAnimations = {
