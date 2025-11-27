@@ -7,10 +7,11 @@ from PySide6.QtWidgets import (QFrame, QLabel, QPushButton, QVBoxLayout,
                               QHBoxLayout, QComboBox, QCheckBox,
                               QScrollArea, QWidget, QGroupBox, 
                               QMessageBox)
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QThreadPool
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 from theme_manager import ThemeManager
+from worker import Worker
 from api_client import APIClient
 import json
 import os
@@ -77,9 +78,15 @@ class SettingsPage(QFrame):
         
         theme_label = QLabel("Theme:")
         theme_label.setStyleSheet("font-size: 14px; color: #cccccc;")
-        
-        self.theme_combo = QComboBox()
+
+        class ThemeCombo(QComboBox):
+            def wheelEvent(self, event):
+                # Prevent accidental theme changes while scrolling page
+                event.ignore()
+
+        self.theme_combo = ThemeCombo()
         self.theme_combo.addItems(["Dark", "Light", "Blue", "Purple"])
+        self.theme_combo.setFocusPolicy(Qt.StrongFocus)
         self.theme_combo.setStyleSheet("""
             QComboBox {
                 background-color: #5c6378;
@@ -89,10 +96,7 @@ class SettingsPage(QFrame):
                 padding: 10px 12px;
                 font-size: 14px;
             }
-            QComboBox::drop-down {
-                border: none;
-                width: 30px;
-            }
+            QComboBox::drop-down { border: none; width: 28px; }
             QComboBox::down-arrow {
                 image: none;
                 border-left: 5px solid transparent;
@@ -100,9 +104,7 @@ class SettingsPage(QFrame):
                 border-top: 6px solid white;
                 margin-right: 10px;
             }
-            QComboBox:hover {
-                border: 2px solid #6c5ce7;
-            }
+            QComboBox:hover { border: 2px solid #6c5ce7; }
             QComboBox QAbstractItemView {
                 background-color: #424758;
                 color: white;
@@ -111,15 +113,11 @@ class SettingsPage(QFrame):
                 border-radius: 4px;
                 padding: 5px;
             }
-            QComboBox QAbstractItemView::item {
-                padding: 8px;
-                border-radius: 4px;
-            }
-            QComboBox QAbstractItemView::item:hover {
-                background-color: #5c6378;
-            }
+            QComboBox QAbstractItemView::item { padding: 8px; border-radius: 4px; }
+            QComboBox QAbstractItemView::item:hover { background-color: #5c6378; }
         """)
-        self.theme_combo.currentTextChanged.connect(self.on_theme_changed)
+        # Use activated to change theme only on explicit selection (keyboard Enter or click)
+        self.theme_combo.activated.connect(lambda idx: self.on_theme_changed(self.theme_combo.itemText(idx)))
 
         # Option: apply theme globally or only to this page
         self.apply_global_check = QCheckBox("Apply theme to entire application")
@@ -376,10 +374,9 @@ class SettingsPage(QFrame):
         return container
     
     def load_settings(self):
-        """Load settings from file and backend"""
+        """Load settings from local file immediately; backend async merge."""
         settings = {}
-        
-        # Load from local file
+        # Local file (fast, non-blocking)
         if os.path.exists(self.settings_file):
             try:
                 with open(self.settings_file, 'r') as f:
@@ -387,23 +384,49 @@ class SettingsPage(QFrame):
                 print("✅ Settings loaded from file")
             except Exception as e:
                 print(f"Error loading settings file: {e}")
-        
-        # Load from backend
-        try:
-            result = APIClient.get_user_settings(self.user_id)
-            if 'error' not in result:
-                settings.update(result)
-                print("✅ Settings loaded from backend")
-        except Exception as e:
-            print(f"Error loading from backend: {e}")
-        
-        # Apply settings to UI
+
+        # Apply local settings WITHOUT triggering theme change yet
+        self.theme_combo.blockSignals(True)
         self.theme_combo.setCurrentText(settings.get('theme', 'Dark'))
+        self.theme_combo.blockSignals(False)
         self.mic_combo.setCurrentText(settings.get('mic_permission', 'Always Allow'))
         self.cam_combo.setCurrentText(settings.get('cam_permission', 'Always Allow'))
         self.notif_check.setChecked(settings.get('enable_notifications', True))
         self.sound_check.setChecked(settings.get('sound_notifications', True))
         self.auto_dismiss_check.setChecked(settings.get('auto_dismiss', True))
+
+        # Async backend load
+        def _get_backend(uid):
+            return APIClient.get_user_settings(uid)
+
+        worker = Worker(_get_backend, self.user_id)
+        worker.signals.result.connect(self._merge_backend_settings)
+        worker.signals.error.connect(lambda e: print(f"Backend settings load error: {e}"))
+        QThreadPool.globalInstance().start(worker)
+
+    def _merge_backend_settings(self, result):
+        if not isinstance(result, dict):
+            return
+        if 'error' in result:
+            print(f"Backend returned error: {result['error']}")
+            return
+        print("✅ Backend settings merged asynchronously")
+        self.theme_combo.blockSignals(True)
+        if 'theme' in result:
+            self.theme_combo.setCurrentText(result.get('theme', self.theme_combo.currentText()))
+        self.theme_combo.blockSignals(False)
+        if 'mic_permission' in result:
+            try: self.mic_combo.setCurrentText(result['mic_permission'])
+            except Exception: pass
+        if 'cam_permission' in result:
+            try: self.cam_combo.setCurrentText(result['cam_permission'])
+            except Exception: pass
+        if 'enable_notifications' in result:
+            self.notif_check.setChecked(result['enable_notifications'])
+        if 'sound_notifications' in result:
+            self.sound_check.setChecked(result['sound_notifications'])
+        if 'auto_dismiss' in result:
+            self.auto_dismiss_check.setChecked(result['auto_dismiss'])
     
     def on_theme_changed(self, theme_name):
         """Handle theme change immediately"""
@@ -503,6 +526,12 @@ class SettingsPage(QFrame):
     
     def apply_theme(self, theme_name):
         """Apply selected theme"""
+        # Prevent redundant applications
+        if getattr(self, '_current_theme', None) == theme_name and not getattr(self, '_force_theme_once', False):
+            return
+        if getattr(self, '_applying_theme', False):
+            return
+        self._applying_theme = True
         themes = {
             "Dark": {
                 "background": "#3a404d",
@@ -530,23 +559,32 @@ class SettingsPage(QFrame):
             }
         }
         
-        # Backwards-compatible wrapper: respect global checkbox
-        if getattr(self, 'apply_global_check', None) and self.apply_global_check.isChecked():
-            app = QApplication.instance()
-            if app is not None:
-                setattr(app, '_force_clear_local_styles', True)
-                ThemeManager.apply_theme(app, theme_name)
-                try:
-                    delattr(app, '_force_clear_local_styles')
-                except Exception:
-                    pass
-                return
-
-        # Otherwise apply theme only to this page
-        self.apply_theme_local(theme_name)
+        try:
+            # Backwards-compatible wrapper: respect global checkbox
+            if getattr(self, 'apply_global_check', None) and self.apply_global_check.isChecked():
+                app = QApplication.instance()
+                if app is not None:
+                    setattr(app, '_force_clear_local_styles', True)
+                    ThemeManager.apply_theme(app, theme_name)
+                    try:
+                        delattr(app, '_force_clear_local_styles')
+                    except Exception:
+                        pass
+                    print(f"✅ Theme applied: {theme_name} (global)")
+                else:
+                    self.apply_theme_local(theme_name)
+            else:
+                self.apply_theme_local(theme_name)
+            self._current_theme = theme_name
+        finally:
+            self._applying_theme = False
+            if getattr(self, '_force_theme_once', False):
+                self._force_theme_once = False
 
     def apply_theme_local(self, theme_name):
         """Apply theme only to this settings page (no global changes)."""
+        if getattr(self, '_current_theme', None) == theme_name and not getattr(self, '_force_theme_once', False):
+            return
         themes_local = {
             "Dark": {
                 "background": "#3a404d",

@@ -9,7 +9,8 @@ import subprocess
 import platform
 import requests
 from PySide6.QtWidgets import QMainWindow, QStackedWidget, QMessageBox, QApplication
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QTimer, Slot
+from PySide6.QtCore import QThreadPool
 from ui_sidebar import Ui_MainWindow
 from home import HomePage
 from history import HistoryPage
@@ -18,6 +19,7 @@ from help import HelpPage
 from api_client import APIClient
 from auth import AuthenticationWidget
 from theme_manager import ThemeManager
+from worker import Worker
 
 # Import notification components
 from notification_widget import WindowsToastNotification
@@ -104,6 +106,12 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
         
         # Pet app should already be running (started with backend)
         # No need to start it here
+
+        # Apply initial global dark theme across all pages for consistency
+        try:
+            self.apply_theme_to_all("Dark")
+        except Exception as e:
+            print(f"Initial theme apply failed: {e}")
     
     def load_settings(self):
         """Load app settings from file"""
@@ -118,6 +126,27 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
                 print(f"✅ Settings loaded: Notifications={self.notifications_enabled}, Pet={self.pet_type}")
             except Exception as e:
                 print(f"Error loading settings: {e}")
+
+        # Also load user settings from backend asynchronously to avoid blocking UI
+        def _load_user_settings(user_id):
+            return APIClient.get_user_settings(user_id)
+
+        worker = Worker(_load_user_settings, getattr(self, 'user_id', 1))
+        worker.signals.result.connect(self._apply_loaded_user_settings)
+        worker.signals.error.connect(lambda e: print(f"Error loading user settings: {e}"))
+        QThreadPool.globalInstance().start(worker)
+
+    @Slot(object)
+    def _apply_loaded_user_settings(self, result):
+        if isinstance(result, dict) and 'theme' in result:
+            # apply theme preference non-blocking
+            try:
+                app = QApplication.instance()
+                if app:
+                    from theme_manager import ThemeManager
+                    ThemeManager.apply_theme(app, result.get('theme', 'Dark'))
+            except Exception:
+                pass
     
     def connect_emotion_signals(self):
         """Connect emotion detection to notification system"""
@@ -223,22 +252,39 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
     
     def on_theme_changed(self, theme_name):
         """Handle theme changes"""
-        print(f"🎨 Theme changed to: {theme_name}")
-        # Apply the theme centrally so it persists across pages
+        print(f"Theme changed to: {theme_name}")
         try:
-            from theme_manager import ThemeManager
-            app = QApplication.instance()
-            if app is not None:
-                # Request ThemeManager to clear local widget styles so global stylesheet takes effect
-                setattr(app, '_force_clear_local_styles', True)
-                ThemeManager.apply_theme(app, theme_name)
-                try:
-                    delattr(app, '_force_clear_local_styles')
-                except Exception:
-                    pass
-                print(f"✅ Global theme applied from sidebar: {theme_name}")
+            self.apply_theme_to_all(theme_name)
+            print(f"Global theme applied: {theme_name}")
         except Exception as e:
             print(f"Failed to apply global theme: {e}")
+
+    def apply_theme_to_all(self, theme_name):
+        """Apply ThemeManager stylesheet and allow pages to adjust local elements."""
+        app = QApplication.instance()
+        if app is None:
+            return
+        ThemeManager.apply_theme(app, theme_name)
+        # Propagate to pages that expose local apply hooks
+        for page in [
+            getattr(self, 'home_page', None),
+            getattr(self, 'pet_page', None),
+            getattr(self, 'notification_settings_page', None),
+            getattr(self, 'history_page', None),
+            getattr(self, 'settings_page', None),
+            getattr(self, 'profile_page', None),
+            getattr(self, 'help_page', None)
+        ]:
+            if page is None:
+                continue
+            # Prefer explicit local theme method names
+            try:
+                if hasattr(page, 'apply_theme_local'):
+                    page.apply_theme_local(theme_name)
+                elif hasattr(page, 'apply_styles'):
+                    page.apply_styles(theme_name)
+            except Exception as e:
+                print(f"Theme propagate failed for {page}: {e}")
     
     def on_notification_settings_changed(self, settings):
         """Handle notification settings changes"""
@@ -259,9 +305,18 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
             QMessageBox.information(self, "Search", "Please enter a search term (mood or date).")
             return
 
-        # Fetch full history and filter locally
+        # Fetch full history in background and filter locally when ready
+        def _fetch_history(uid):
+            return APIClient.get_mood_history(uid)
+
+        worker = Worker(_fetch_history, self.user_id)
+        worker.signals.result.connect(lambda all_history: self._handle_search_results(query, all_history))
+        worker.signals.error.connect(lambda err: QMessageBox.critical(self, "Search Error", f"Failed to fetch history: {err}"))
+        QThreadPool.globalInstance().start(worker)
+
+    @Slot(str, object)
+    def _handle_search_results(self, query, all_history):
         try:
-            all_history = APIClient.get_mood_history(self.user_id)
             if isinstance(all_history, dict) and 'error' in all_history:
                 QMessageBox.critical(self, "Search Error", f"Failed to fetch history: {all_history.get('error')}")
                 return
@@ -272,16 +327,13 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
                 mood = str(e.get('mood', '')).lower()
                 source = str(e.get('source', '')).lower()
                 ts = str(e.get('timestamp', '')).lower()
-                # Match if query is in mood, source or timestamp
                 if q in mood or q in source or q in ts:
                     filtered.append(e)
 
-            # If no results, inform user
             if not filtered:
                 QMessageBox.information(self, "Search", f"No results for '{query}'")
                 return
 
-            # Show results in history page
             self.history_page.all_history_data = sorted(filtered, key=lambda x: x.get('timestamp', ''), reverse=True)
             self.switch_page(self.history_page)
             self.history_page.update_ui_with_data()
@@ -303,25 +355,53 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
     
     def load_user_data(self):
         """Load user data from backend"""
+        # Load user data in background to avoid blocking UI
+        def _get_user(uid):
+            return APIClient.get_user(uid)
+
+        worker = Worker(_get_user, self.user_id)
+        worker.signals.result.connect(self._apply_user_data)
+        worker.signals.error.connect(lambda e: print(f"Failed to load user data: {e}"))
+        QThreadPool.globalInstance().start(worker)
+
+    @Slot(object)
+    def _apply_user_data(self, result):
         try:
-            result = APIClient.get_user(self.user_id)
-            if 'error' not in result:
+            if isinstance(result, dict) and 'error' not in result:
                 self.username = result.get('username', 'User')
-                print(f"✅ Loaded user: {self.username}")
+                print(f"Loaded user: {self.username}")
+                # update home page username if present
+                if hasattr(self, 'home_page'):
+                    self.home_page.update_username(self.username)
         except Exception as e:
-            print(f"Failed to load user data: {e}")
+            print(f"Error applying user data: {e}")
     
     def load_pet_data(self):
         """Load pet data from backend"""
+        # Load pet data in background to avoid blocking UI
+        def _get_pet(uid):
+            return APIClient.get_pet_data(uid)
+
+        worker = Worker(_get_pet, self.user_id)
+        worker.signals.result.connect(self._apply_pet_data)
+        worker.signals.error.connect(lambda e: print(f"Failed to load pet data: {e}"))
+        QThreadPool.globalInstance().start(worker)
+
+    @Slot(object)
+    def _apply_pet_data(self, result):
         try:
-            result = APIClient.get_pet_data(self.user_id)
-            if 'error' not in result:
+            if isinstance(result, dict) and 'error' not in result:
                 self.pet_name = result.get('pet_name', 'Buddy')
                 self.pet_type = result.get('pet_type', 'cat')
                 self.pet_mood = result.get('pet_mood', 'happy')
-                print(f"✅ Loaded pet: {self.pet_name} ({self.pet_type}) - mood: {self.pet_mood}")
+                print(f"Loaded pet: {self.pet_name} ({self.pet_type}) - mood: {self.pet_mood}")
+                # Update UI pages if they exist
+                if hasattr(self, 'pet_page'):
+                    self.pet_page.pet_name = self.pet_name
+                    self.pet_page.pet_type = self.pet_type
+                    self.pet_page.update_ui()
         except Exception as e:
-            print(f"Failed to load pet data: {e}")
+            print(f"Error applying pet data: {e}")
     
     def connect_navigation(self):
         """Connect all navigation buttons to their respective pages"""

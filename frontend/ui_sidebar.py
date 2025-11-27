@@ -159,7 +159,7 @@ class Ui_MainWindow(object):
 "	text-align: left;\n"
 "	height: 30px;\n"
 "	border: none;\n"
-"	padding-left: 10px;\n"
+"	padding-left: 20px;\n"
 "	border-top-left-radius: 10px;\n"
 "	border-bottom-left-radius: 10px;\n"
 "}\n"

@@ -4,6 +4,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from datetime import datetime
 from api_client import APIClient
+from worker import Worker
+from PySide6.QtCore import Slot
 
 class HistoryPage(QFrame):
     def __init__(self, parent=None):
@@ -85,17 +87,28 @@ class HistoryPage(QFrame):
     def refresh_history(self):
         """Fetch latest mood history from API"""
         print("Refreshing mood history from backend...")
-        # Assuming parent_window has user_id, default to 1 otherwise
-        user_id = getattr(self.parent(), 'user_id', 1) 
-        history_data = APIClient.get_mood_history(user_id)
-        
-        if isinstance(history_data, dict) and 'error' in history_data:
-            QMessageBox.critical(self, "Error", str(history_data['error']))
-            return
+        user_id = getattr(self.parent(), 'user_id', 1)
 
-        # Sort data by timestamp, newest first
-        self.all_history_data = sorted(history_data, key=lambda x: x.get('timestamp', ''), reverse=True)
-        self.update_ui_with_data()
+        def _fetch_history(uid):
+            return APIClient.get_mood_history(uid)
+
+        worker = Worker(_fetch_history, user_id)
+        worker.signals.result.connect(self._apply_history_result)
+        worker.signals.error.connect(lambda e: QMessageBox.critical(self, "Error", str(e)))
+        QThreadPool = __import__('PySide6.QtCore', fromlist=['QThreadPool']).QThreadPool
+        QThreadPool.globalInstance().start(worker)
+
+    @Slot(object)
+    def _apply_history_result(self, history_data):
+        try:
+            if isinstance(history_data, dict) and 'error' in history_data:
+                QMessageBox.critical(self, "Error", str(history_data['error']))
+                return
+
+            self.all_history_data = sorted(history_data, key=lambda x: x.get('timestamp', ''), reverse=True)
+            self.update_ui_with_data()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to update history: {e}")
     
     def update_ui_with_data(self):
         """Populate list and stats"""

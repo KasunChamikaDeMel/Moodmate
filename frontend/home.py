@@ -2,7 +2,7 @@ import sys
 from PySide6.QtWidgets import (QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, 
                               QLineEdit, QSizePolicy, QSpacerItem, QMessageBox, QProgressBar,
                               QGraphicsDropShadowEffect, QWidget)
-from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QSize
+from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QSize, QThreadPool, Slot
 from PySide6.QtGui import QIcon, QFont, QColor
 import cv2
 import base64
@@ -19,6 +19,7 @@ import threading
 
 # --- Use the REAL APIClient ---
 from api_client import APIClient
+from worker import Worker
 
 
 class HomePage(QFrame):
@@ -438,12 +439,17 @@ class HomePage(QFrame):
         
         print(f"📊 Emotions collected in 1 minute: {dict(emotion_counts)}")
         print(f"🎯 Most detected emotion: {most_common_emotion} ({count} times out of {len(self.emotion_buffer)} total)")
-        
         # Save ONLY the most common emotion to history (not all individual detections)
         try:
             user_id = self.parent_window.user_id if hasattr(self.parent_window, 'user_id') else 1
-            APIClient.add_mood_entry(user_id, most_common_emotion, "face")
-            print(f"💾 Saved most common emotion to history: {most_common_emotion}")
+            # Save in background to avoid blocking UI
+            def _save_mood(uid, mood):
+                return APIClient.add_mood_entry(uid, mood, "face")
+
+            worker = Worker(_save_mood, user_id, most_common_emotion)
+            worker.signals.result.connect(lambda r: print(f"Saved most common emotion to history: {most_common_emotion}"))
+            worker.signals.error.connect(lambda e: print(f"Failed to save emotion to history: {e}"))
+            QThreadPool.globalInstance().start(worker)
         except Exception as e:
             print(f"Failed to save emotion to history: {e}")
         
@@ -500,21 +506,16 @@ class HomePage(QFrame):
             ret, frame = self.camera.read()
             if not ret:
                 return
-            
-            _, buffer = cv2.imencode('.jpg', frame)
-            image_base64 = base64.b64encode(buffer).decode('utf-8')
-            
-            result = APIClient.predict_face_emotion(image_base64)
-            
-            if 'error' in result:
-                print(f"Face detection error: {result['error']}")
-            elif 'emotion' in result:
-                emotion = result['emotion'].lower()
-                print(f"📷 Face detected: {emotion}")
-                
-                # Add to buffer (will be processed after 1 minute)
-                # Don't save to history here - only save the most common after 1 minute
-                self.add_emotion_to_buffer(emotion)
+            # Offload encoding + network call to thread pool to avoid blocking UI
+            def _encode_and_predict(frame_data):
+                _, buffer = cv2.imencode('.jpg', frame_data)
+                image_base64 = base64.b64encode(buffer).decode('utf-8')
+                return APIClient.predict_face_emotion(image_base64)
+
+            worker = Worker(_encode_and_predict, frame)
+            worker.signals.result.connect(self._handle_face_result)
+            worker.signals.error.connect(self._handle_worker_error)
+            QThreadPool.globalInstance().start(worker)
                 
         except Exception as e:
             print(f"Capture error: {str(e)}")
@@ -541,6 +542,26 @@ class HomePage(QFrame):
         
         self.face_start_button.setEnabled(True)
         self.face_stop_button.setEnabled(False)
+
+    @Slot(object)
+    def _handle_face_result(self, result):
+        try:
+            if isinstance(result, dict) and 'error' in result:
+                print(f"Face detection error: {result['error']}")
+            elif isinstance(result, dict) and 'emotion' in result:
+                emotion = result['emotion'].lower()
+                print(f"Face detected: {emotion}")
+                # Add to buffer (will be processed after 1 minute)
+                self.add_emotion_to_buffer(emotion)
+            else:
+                print(f"Face prediction returned unexpected result: {result}")
+        except Exception as e:
+            print(f"Error handling face result: {e}")
+
+    @Slot(tuple)
+    def _handle_worker_error(self, err):
+        e, tb = err
+        print(f"Worker error: {e}\n{tb}")
     
     def start_voice_detection(self):
         """Start recording audio"""
@@ -556,6 +577,11 @@ class HomePage(QFrame):
             
             self.recording_active = True
             self.audio_frames = []
+            # cache sample width so worker can build WAV without needing pyaudio instance
+            try:
+                self.sample_width = self.audio.get_sample_size(pyaudio.paInt16)
+            except Exception:
+                self.sample_width = 2
             self.voice_start_button.setEnabled(False)
             self.voice_stop_button.setEnabled(True)
             
@@ -600,34 +626,45 @@ class HomePage(QFrame):
     def process_audio(self):
         """Convert audio to base64 and send to backend"""
         try:
-            wav_io = io.BytesIO()
-            with wave.open(wav_io, 'wb') as wf:
-                wf.setnchannels(1)
-                wf.setsampwidth(self.audio.get_sample_size(pyaudio.paInt16))
-                wf.setframerate(22050)
-                wf.writeframes(b''.join(self.audio_frames))
-            
-            audio_base64 = base64.b64encode(wav_io.getvalue()).decode('utf-8')
-            result = APIClient.predict_voice_emotion(audio_base64)
-            
-            if 'error' in result:
+            # Offload WAV building + network call to worker
+            def _build_wav_and_predict(frames, sampwidth):
+                wav_io = io.BytesIO()
+                with wave.open(wav_io, 'wb') as wf:
+                    wf.setnchannels(1)
+                    wf.setsampwidth(sampwidth)
+                    wf.setframerate(22050)
+                    wf.writeframes(b''.join(frames))
+                audio_base64 = base64.b64encode(wav_io.getvalue()).decode('utf-8')
+                return APIClient.predict_voice_emotion(audio_base64)
+
+            worker = Worker(_build_wav_and_predict, list(self.audio_frames), getattr(self, 'sample_width', 2))
+            worker.signals.result.connect(self._handle_voice_result)
+            worker.signals.error.connect(self._handle_worker_error)
+            QThreadPool.globalInstance().start(worker)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to process audio: {str(e)}")
+
+    @Slot(object)
+    def _handle_voice_result(self, result):
+        try:
+            if isinstance(result, dict) and 'error' in result:
                 QMessageBox.warning(self, "Error", f"Voice analysis failed: {result['error']}")
-            elif 'emotion' in result:
+            elif isinstance(result, dict) and 'emotion' in result:
                 emotion = self.normalize_emotion(result['emotion'])
-                print(f"🎤 Voice detected: {emotion}")
-                
-                # Save to history immediately for voice (voice is manual, not continuous like face)
+                print(f"Voice detected: {emotion}")
+                # Save to history immediately for voice
                 try:
                     user_id = self.parent_window.user_id if hasattr(self.parent_window, 'user_id') else 1
                     APIClient.add_mood_entry(user_id, emotion, "voice")
                 except Exception as e:
                     print(f"Failed to save emotion to history: {e}")
-                
                 # Update UI and trigger notifications
                 self.update_emotion(emotion)
-            
+            else:
+                print(f"Voice prediction returned unexpected result: {result}")
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to process audio: {str(e)}")
+            print(f"Error handling voice result: {e}")
     
     def analyze_text(self):
         """Analyze text emotion"""
@@ -638,27 +675,37 @@ class HomePage(QFrame):
             return
         
         try:
-            result = APIClient.predict_text_emotion(text)
-            
-            if 'error' in result:
+            # Run text prediction in worker to avoid blocking UI
+            def _predict_text(t):
+                return APIClient.predict_text_emotion(t)
+
+            worker = Worker(_predict_text, text)
+            worker.signals.result.connect(self._handle_text_result)
+            worker.signals.error.connect(self._handle_worker_error)
+            QThreadPool.globalInstance().start(worker)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to analyze text: {str(e)}")
+
+    @Slot(object)
+    def _handle_text_result(self, result):
+        try:
+            if isinstance(result, dict) and 'error' in result:
                 QMessageBox.warning(self, "Error", f"Text analysis failed: {result['error']}")
-            elif 'emotion' in result:
+            elif isinstance(result, dict) and 'emotion' in result:
                 emotion = self.normalize_emotion(result['emotion'])
-                print(f"📝 Text detected: {emotion}")
-                
-                # Save to history immediately for text (text is manual, not continuous like face)
+                print(f"Text detected: {emotion}")
                 try:
                     user_id = self.parent_window.user_id if hasattr(self.parent_window, 'user_id') else 1
                     APIClient.add_mood_entry(user_id, emotion, "text")
                 except Exception as e:
                     print(f"Failed to save emotion to history: {e}")
-                
-                # Update UI and trigger notifications
                 self.update_emotion(emotion)
                 self.text_input.clear()
-            
+            else:
+                print(f"Text prediction returned unexpected result: {result}")
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to analyze text: {str(e)}")
+            print(f"Error handling text result: {e}")
     
     def update_emotion(self, emotion):
         """Update UI with detected emotion"""
@@ -681,18 +728,24 @@ class HomePage(QFrame):
             if hasattr(self.parent_window.pet_page, 'update_ui'):
                 self.parent_window.pet_page.update_ui()
             
-            try:
-                user_id = self.parent_window.user_id if hasattr(self.parent_window, 'user_id') else 1
-                APIClient.update_pet_mood(user_id, pet_mood)
-            except Exception as e:
-                print(f"Failed to update pet mood: {e}")
+                try:
+                    user_id = self.parent_window.user_id if hasattr(self.parent_window, 'user_id') else 1
+                    def _update_pet(uid, mood):
+                        return APIClient.update_pet_mood(uid, mood)
+
+                    worker = Worker(_update_pet, user_id, pet_mood)
+                    worker.signals.result.connect(lambda r: None)
+                    worker.signals.error.connect(lambda e: print(f"Failed to update pet mood: {e}"))
+                    QThreadPool.globalInstance().start(worker)
+                except Exception as e:
+                    print(f"Failed to update pet mood: {e}")
     
     def update_content(self, username, mood, pet_name):
         self.update_username(username)
         self.update_mood(mood)
     
     def update_username(self, username):
-        self.greeting_label.setText(f"Hello, {username}! 👋")
+        self.greeting_label.setText(f"Hello, {username}!")
     
     def update_mood(self, mood):
         mood_colors = {

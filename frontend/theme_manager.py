@@ -262,41 +262,124 @@ class ThemeManager:
                 border-radius: 9px;
             }}
         """
+
+        @staticmethod
+        def get_color_stylesheet(theme_name="Dark"):
+            """Return a minimal stylesheet that only changes colors (no font/size/padding).
+            Use this when we want to change only the color theme and preserve per-widget layout/styles.
+            """
+            theme = ThemeManager.THEMES.get(theme_name, ThemeManager.THEMES["Dark"])
+
+            return f"""
+                QMainWindow, QWidget {{
+                    background-color: {theme['background']};
+                    color: {theme['text']};
+                }}
+
+                QFrame {{
+                    background-color: {theme['card']};
+                }}
+
+                QGroupBox {{
+                    background-color: {theme['card']};
+                    border: 1px solid {theme['border']};
+                    color: {theme['text']};
+                }}
+
+                QLabel {{
+                    color: {theme['text']};
+                }}
+
+                QPushButton {{
+                    background-color: {theme['accent']};
+                    color: {theme['text']};
+                    border: 1px solid {theme['border']};
+                }}
+
+                QPushButton:hover {{
+                    background-color: {theme['accent_hover']};
+                }}
+
+                QLineEdit, QTextEdit, QPlainTextEdit {{
+                    background-color: {theme['secondary']};
+                    color: {theme['text']};
+                    border: 1px solid {theme['border']};
+                }}
+
+                QComboBox, QComboBox QAbstractItemView {{
+                    background-color: {theme['secondary']};
+                    color: {theme['text']};
+                    border: 1px solid {theme['border']};
+                }}
+
+                QCheckBox {{
+                    color: {theme['text']};
+                }}
+
+                QCheckBox::indicator {{
+                    border: 1px solid {theme['border']};
+                    background-color: {theme['secondary']};
+                }}
+
+                QCheckBox::indicator:checked {{
+                    background-color: {theme['accent']};
+                    border-color: {theme['accent']};
+                }}
+
+                QRadioButton {{
+                    color: {theme['text']};
+                }}
+
+                QListWidget {{
+                    background-color: {theme['card']};
+                    color: {theme['text']};
+                    border: 1px solid {theme['border']};
+                }}
+
+                QListWidget::item:selected {{
+                    background-color: {theme['accent']};
+                }}
+
+                QScrollArea {{
+                    background-color: {theme['background']};
+                }}
+
+                QScrollBar:vertical {{
+                    background: {theme['card']};
+                }}
+
+                QScrollBar::handle:vertical {{
+                    background: {theme['accent']};
+                }}
+
+                QSlider::groove:horizontal {{
+                    background: {theme['secondary']};
+                    border: 1px solid {theme['border']};
+                }}
+
+                QSlider::handle:horizontal {{
+                    background: {theme['accent']};
+                    border: 1px solid {theme['accent_hover']};
+                }}
+            """
     
     @staticmethod
     def apply_theme(app, theme_name="Dark"):
         """Apply theme to entire application"""
         ThemeManager.current_theme = theme_name
-        stylesheet = ThemeManager.get_stylesheet(theme_name)
+        # Apply a color-only stylesheet by default so we don't override per-widget
+        # layout/typography (font sizes, paddings, radii). This preserves existing
+        # widget-specific styles while updating colors.
+        stylesheet = ThemeManager.get_color_stylesheet(theme_name)
 
-        # Clear locally-applied widget styles if requested via keyword
-        # If caller passes force_clear_local=True, remove per-widget styles
-        # so the application stylesheet can take full effect.
-        force_clear = False
-        try:
-            # Expect optional attribute set on app for backward compatibility
-            force_clear = getattr(app, '_force_clear_local_styles', False)
-        except Exception:
-            force_clear = False
-
-        if force_clear:
-            try:
-                for top in app.topLevelWidgets():
-                    try:
-                        top.setStyleSheet("")
-                    except Exception:
-                        pass
-                    # Clear children styles
-                    for child in top.findChildren(QWidget):
-                        try:
-                            child.setStyleSheet("")
-                        except Exception:
-                            pass
-            except Exception:
-                pass
+        # Note: we intentionally do NOT clear per-widget styles here. Clearing
+        # entire widget stylesheets removes local layout/size rules that the
+        # app or pages may have set. If a future caller explicitly needs to
+        # force-clear styles, they can set a special attribute `_force_clear_all`
+        # on the `app` instance; by default we just apply color changes.
 
         app.setStyleSheet(stylesheet)
-        print(f"✅ Theme applied: {theme_name} (force_clear_local={force_clear})")
+        print(f"✅ Color theme applied: {theme_name}")
     
     @staticmethod
     def get_color(color_key, theme_name=None):

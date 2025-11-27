@@ -5,10 +5,12 @@ Profile Page with Backend Integration, Logout, and Statistics
 from PySide6.QtWidgets import (QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, 
                               QLineEdit, QFormLayout, QSizePolicy, QSpacerItem, 
                               QPlainTextEdit, QScrollArea, QWidget, QGroupBox, QMessageBox)
-from PySide6.QtCore import Qt, QSize, Signal
+from PySide6.QtCore import Qt, QSize, Signal, Slot, QThreadPool
 from PySide6.QtGui import QIcon, QPixmap
 from api_client import APIClient
 from datetime import datetime
+from worker import Worker
+from PySide6.QtCore import Slot
 
 
 class ProfilePage(QFrame):
@@ -47,7 +49,7 @@ class ProfilePage(QFrame):
         # Title with logout button
         header_layout = QHBoxLayout()
         
-        title = QLabel("👤 Your Profile")
+        title = QLabel("Your Profile")
         title.setStyleSheet("""
             QLabel {
                 font-size: 24px;
@@ -56,7 +58,7 @@ class ProfilePage(QFrame):
             }
         """)
         
-        logout_btn = QPushButton("🚪 Logout")
+        logout_btn = QPushButton("Logout")
         logout_btn.clicked.connect(self.logout)
         logout_btn.setStyleSheet("""
             QPushButton {
@@ -129,7 +131,7 @@ class ProfilePage(QFrame):
         layout.addWidget(avatar_frame)
         
         # Statistics Section
-        stats_group = QGroupBox("📊 Your Statistics")
+        stats_group = QGroupBox("Your Statistics")
         stats_group.setStyleSheet("""
             QGroupBox {
                 background-color: #424758;
@@ -152,15 +154,15 @@ class ProfilePage(QFrame):
         stats_layout.setSpacing(15)
         
         # Mood entries stat
-        self.mood_stat = self.create_stat_card("🎭", "Mood Entries", "0")
+        self.mood_stat = self.create_stat_card("", "Mood Entries", "0")
         stats_layout.addWidget(self.mood_stat)
         
         # Days active stat
-        self.days_stat = self.create_stat_card("📅", "Days Active", "0")
+        self.days_stat = self.create_stat_card("", "Days Active", "0")
         stats_layout.addWidget(self.days_stat)
         
         # Pet level stat
-        self.pet_stat = self.create_stat_card("🐾", "Pet Level", "1")
+        self.pet_stat = self.create_stat_card("", "Pet Level", "1")
         stats_layout.addWidget(self.pet_stat)
         
         layout.addWidget(stats_group)
@@ -218,7 +220,7 @@ class ProfilePage(QFrame):
             }
         """)
         
-        self.save_button = QPushButton("💾 Save Changes")
+        self.save_button = QPushButton("Save Changes")
         self.save_button.clicked.connect(self.save_profile)
         self.save_button.setStyleSheet("""
             QPushButton {
@@ -335,10 +337,16 @@ class ProfilePage(QFrame):
             self.user_id = user_data.get('id', 1)
         
         if not self.user_data:
-            # Load from backend
-            result = APIClient.get_user(self.user_id)
-            if 'error' not in result:
-                self.user_data = result
+            # Load from backend asynchronously
+            def _get_user(uid):
+                return APIClient.get_user(uid)
+
+            worker = Worker(_get_user, self.user_id)
+            worker.signals.result.connect(self._apply_user_data)
+            worker.signals.error.connect(lambda e: print(f"Error loading user: {e}"))
+            QThreadPool = __import__('PySide6.QtCore', fromlist=['QThreadPool']).QThreadPool
+            QThreadPool.globalInstance().start(worker)
+            return
         
         if not self.user_data:
             print("No user data available")
@@ -369,6 +377,16 @@ class ProfilePage(QFrame):
         self.load_statistics()
         
         print(f"✅ Profile loaded for user: {username}")
+
+    @Slot(object)
+    def _apply_user_data(self, result):
+        try:
+            if isinstance(result, dict) and 'error' not in result:
+                self.user_data = result
+                # proceed to update UI with the loaded data
+                self.load_user_data(self.user_data)
+        except Exception as e:
+            print(f"Error applying user data: {e}")
     
     def load_statistics(self):
         """Load user statistics"""
@@ -377,17 +395,15 @@ class ProfilePage(QFrame):
         
         user_id = self.user_data.get('id', 1)
         
-        # Get mood history count
-        try:
-            history = APIClient.get_mood_history(user_id)
-            if isinstance(history, list):
-                mood_value = self.mood_stat.findChild(QLabel, "stat_mood_entries")
-                if mood_value:
-                    mood_value.setText(str(len(history)))
-        except Exception as e:
-            print(f"Error loading mood history: {e}")
+        # Get mood history count asynchronously
+        def _get_history(uid):
+            return APIClient.get_mood_history(uid)
+        history_worker = Worker(_get_history, user_id)
+        history_worker.signals.result.connect(self._apply_history_stat)
+        history_worker.signals.error.connect(lambda e: print(f"Error loading mood history: {e}"))
+        QThreadPool.globalInstance().start(history_worker)
         
-        # Calculate days active
+        # Calculate days active (local computation only)
         created_at = self.user_data.get('created_at', '')
         if created_at:
             try:
@@ -399,15 +415,33 @@ class ProfilePage(QFrame):
             except Exception as e:
                 print(f"Error calculating days: {e}")
         
-        # Get pet level
+        # Get pet level asynchronously
+        def _get_pet(uid):
+            return APIClient.get_pet_data(uid)
+        pet_worker = Worker(_get_pet, user_id)
+        pet_worker.signals.result.connect(self._apply_pet_stat)
+        pet_worker.signals.error.connect(lambda e: print(f"Error loading pet data: {e}"))
+        QThreadPool.globalInstance().start(pet_worker)
+
+    @Slot(object)
+    def _apply_history_stat(self, history):
         try:
-            pet_data = APIClient.get_pet_data(user_id)
-            if 'pet_level' in pet_data:
+            if isinstance(history, list):
+                mood_value = self.mood_stat.findChild(QLabel, "stat_mood_entries")
+                if mood_value:
+                    mood_value.setText(str(len(history)))
+        except Exception as e:
+            print(f"Error applying history stat: {e}")
+
+    @Slot(object)
+    def _apply_pet_stat(self, pet_data):
+        try:
+            if isinstance(pet_data, dict) and 'pet_level' in pet_data:
                 pet_value = self.pet_stat.findChild(QLabel, "stat_pet_level")
                 if pet_value:
                     pet_value.setText(str(pet_data['pet_level']))
         except Exception as e:
-            print(f"Error loading pet data: {e}")
+            print(f"Error applying pet stat: {e}")
     
     def save_profile(self):
         """Save profile changes to backend"""
@@ -427,28 +461,30 @@ class ProfilePage(QFrame):
                 QMessageBox.warning(self, "Validation Error", "Username cannot be empty!")
                 return
             
-            # Send to backend
-            result = APIClient.update_user(self.user_id, data)
-            
-            if 'error' in result:
-                QMessageBox.warning(self, "Error", f"Failed to save profile: {result['error']}")
-                return
-            
-            # Update local data
-            self.user_data.update(data)
-            self.username_display.setText(data['username'])
-            
-            # Emit signal
-            self.profile_updated.emit(self.user_data)
-            
-            QMessageBox.information(self, "✅ Success", "Profile updated successfully!")
-            print(f"✅ Profile updated: {data['username']}")
-            
-            # Update parent window username if it exists
-            if self.parent_window and hasattr(self.parent_window, 'username'):
-                self.parent_window.username = data['username']
-                if hasattr(self.parent_window, 'home_page'):
-                    self.parent_window.home_page.update_username(data['username'])
+            def _update_profile(uid, payload):
+                return APIClient.update_user(uid, payload)
+            update_worker = Worker(_update_profile, self.user_id, data)
+
+            def _handle_update_result(result):
+                try:
+                    if isinstance(result, dict) and 'error' in result:
+                        QMessageBox.warning(self, "Error", f"Failed to save profile: {result['error']}")
+                        return
+                    self.user_data.update(data)
+                    self.username_display.setText(data['username'])
+                    self.profile_updated.emit(self.user_data)
+                    QMessageBox.information(self, "Success", "Profile updated successfully!")
+                    print(f"✅ Profile updated: {data['username']}")
+                    if self.parent_window and hasattr(self.parent_window, 'username'):
+                        self.parent_window.username = data['username']
+                        if hasattr(self.parent_window, 'home_page'):
+                            self.parent_window.home_page.update_username(data['username'])
+                except Exception as e:
+                    QMessageBox.warning(self, "Error", f"Failed processing update result: {e}")
+
+            update_worker.signals.result.connect(_handle_update_result)
+            update_worker.signals.error.connect(lambda e: QMessageBox.warning(self, "Error", f"Update failed: {e}"))
+            QThreadPool.globalInstance().start(update_worker)
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save profile: {str(e)}")

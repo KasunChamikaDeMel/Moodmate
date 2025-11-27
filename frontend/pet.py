@@ -14,6 +14,8 @@ from datetime import datetime, timedelta
 import random
 import math
 from api_client import APIClient
+from worker import Worker
+from PySide6.QtCore import Slot
 
 
 class BeautifulPetWidget(QWidget):
@@ -493,14 +495,25 @@ class PetPage(QFrame):
     
     def load_pet_data(self):
         """Load pet data"""
+        # Load pet data in background to avoid UI blocking
+        def _get_pet(uid):
+            return APIClient.get_pet_data(uid)
+
+        worker = Worker(_get_pet, self.user_id)
+        worker.signals.result.connect(self._apply_pet_data)
+        worker.signals.error.connect(lambda e: print(f"Failed to load pet data: {e}"))
+        QThreadPool = __import__('PySide6.QtCore', fromlist=['QThreadPool']).QThreadPool
+        QThreadPool.globalInstance().start(worker)
+
+    @Slot(object)
+    def _apply_pet_data(self, result):
         try:
-            result = APIClient.get_pet_data(self.user_id)
-            if 'error' not in result:
+            if isinstance(result, dict) and 'error' not in result:
                 self.pet_name = result.get('pet_name', 'Buddy')
                 self.pet_type = result.get('pet_type', 'cat')
                 self.update_ui()
         except Exception as e:
-            print(f"Failed to load pet data: {e}")
+            print(f"Error applying pet data: {e}")
     
     def update_ui(self):
         self.title_label.setText(f"🐾 My Pet: {self.pet_name}")
