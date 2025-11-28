@@ -7,3 +7,4 @@ __pycache__/
 node_modules/
 /data/mood_history.json
 /data/pets.json
+backend/data/pets.json
