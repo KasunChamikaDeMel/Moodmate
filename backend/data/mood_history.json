@@ -370,5 +370,11 @@
     "mood": "neutral",
     "source": "face",
     "timestamp": "2025-11-27T23:58:39.366681"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-11-28T15:59:28.917719"
   }
 ]
