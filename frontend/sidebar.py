@@ -466,12 +466,25 @@ class MoodMateApp(QMainWindow, Ui_MainWindow):
             pass
     
     def closeEvent(self, event):
-        """Handle application close"""
-        if hasattr(self.home_page, 'cleanup'):
-            self.home_page.cleanup()
+        """Handle application close safely"""
+        try:
+            if hasattr(self, 'home_page') and self.home_page:
+                if hasattr(self.home_page, 'cleanup'):
+                    self.home_page.cleanup()
+        except Exception as e:
+            print(f"Home cleanup error: {e}")
         
-        if hasattr(self, 'notification_window'):
-            self.notification_window.close()
+        try:
+            if hasattr(self, 'notification_window') and self.notification_window:
+                self.notification_window.close()
+        except Exception as e:
+            print(f"Notification cleanup error: {e}")
+        
+        try:
+            if hasattr(self, 'pet_animation_timer') and self.pet_animation_timer:
+                self.pet_animation_timer.stop()
+        except Exception as e:
+            print(f"Timer cleanup error: {e}")
         
         event.accept()
     

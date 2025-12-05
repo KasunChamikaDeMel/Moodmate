@@ -479,8 +479,9 @@ class HomePage(QFrame):
         """Start camera and face emotion detection"""
         try:
             self.camera = cv2.VideoCapture(0)
-            if not self.camera.isOpened():
+            if self.camera is None or not self.camera.isOpened():
                 QMessageBox.warning(self, "Camera Error", "Could not access camera!")
+                self.camera = None
                 return
             
             self.camera_active = True
@@ -495,6 +496,9 @@ class HomePage(QFrame):
             self.camera_timer.start(5000)  # Every 5 seconds
             
         except Exception as e:
+            print(f"Camera start error: {e}")
+            self.camera = None
+            self.camera_active = False
             QMessageBox.critical(self, "Error", f"Failed to start camera: {str(e)}")
     
     def capture_and_analyze(self):
@@ -504,15 +508,20 @@ class HomePage(QFrame):
         
         try:
             ret, frame = self.camera.read()
-            if not ret:
+            if not ret or frame is None:
+                print("Camera read failed, skipping frame")
                 return
             # Offload encoding + network call to thread pool to avoid blocking UI
             def _encode_and_predict(frame_data):
-                _, buffer = cv2.imencode('.jpg', frame_data)
-                image_base64 = base64.b64encode(buffer).decode('utf-8')
-                return APIClient.predict_face_emotion(image_base64)
+                try:
+                    _, buffer = cv2.imencode('.jpg', frame_data)
+                    image_base64 = base64.b64encode(buffer).decode('utf-8')
+                    return APIClient.predict_face_emotion(image_base64)
+                except Exception as enc_err:
+                    print(f"Encode error: {enc_err}")
+                    return {'error': str(enc_err)}
 
-            worker = Worker(_encode_and_predict, frame)
+            worker = Worker(_encode_and_predict, frame.copy())
             worker.signals.result.connect(self._handle_face_result)
             worker.signals.error.connect(self._handle_worker_error)
             QThreadPool.globalInstance().start(worker)
@@ -590,6 +599,15 @@ class HomePage(QFrame):
             self.record_timer.start(100)
             
         except Exception as e:
+            print(f"Audio start error: {e}")
+            self.recording_active = False
+            self.audio_stream = None
+            if hasattr(self, 'audio') and self.audio:
+                try:
+                    self.audio.terminate()
+                except Exception:
+                    pass
+            self.audio = None
             QMessageBox.critical(self, "Error", f"Failed to start recording: {str(e)}")
     
     def record_audio_chunk(self):
@@ -607,15 +625,27 @@ class HomePage(QFrame):
         """Stop recording and analyze"""
         self.recording_active = False
         
-        if self.record_timer:
-            self.record_timer.stop()
+        try:
+            if self.record_timer:
+                self.record_timer.stop()
+                self.record_timer = None
+        except Exception as e:
+            print(f"Timer stop error: {e}")
         
-        if self.audio_stream:
-            self.audio_stream.stop_stream()
-            self.audio_stream.close()
+        try:
+            if self.audio_stream:
+                self.audio_stream.stop_stream()
+                self.audio_stream.close()
+                self.audio_stream = None
+        except Exception as e:
+            print(f"Audio stream close error: {e}")
         
-        if hasattr(self, 'audio'):
-            self.audio.terminate()
+        try:
+            if hasattr(self, 'audio') and self.audio:
+                self.audio.terminate()
+                self.audio = None
+        except Exception as e:
+            print(f"Audio terminate error: {e}")
         
         self.voice_start_button.setEnabled(True)
         self.voice_stop_button.setEnabled(False)
@@ -772,12 +802,22 @@ class HomePage(QFrame):
         self.pet_reaction_label.setText(reactions.get(mood, "Your pet is peacefully resting"))
     
     def cleanup(self):
-        """Cleanup resources"""
-        if self.buffer_timer:
-            self.buffer_timer.stop()
-            self.buffer_timer = None
+        """Cleanup resources safely"""
+        try:
+            if self.buffer_timer:
+                self.buffer_timer.stop()
+                self.buffer_timer = None
+        except Exception as e:
+            print(f"Buffer timer cleanup error: {e}")
         
-        if self.camera_active:
-            self.stop_face_detection()
-        if self.recording_active:
-            self.stop_voice_detection()
+        try:
+            if self.camera_active:
+                self.stop_face_detection()
+        except Exception as e:
+            print(f"Camera cleanup error: {e}")
+        
+        try:
+            if self.recording_active:
+                self.stop_voice_detection()
+        except Exception as e:
+            print(f"Audio cleanup error: {e}")
