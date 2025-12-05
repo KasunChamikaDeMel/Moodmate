@@ -400,5 +400,125 @@
     "mood": "neutral",
     "source": "face",
     "timestamp": "2025-11-28T16:41:37.780667"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-12-05T21:17:04.201296"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-12-05T21:18:04.186132"
+  },
+  {
+    "user_id": "1",
+    "mood": "angry",
+    "source": "face",
+    "timestamp": "2025-12-05T21:23:22.018170"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-12-05T21:24:24.266488"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-12-05T21:25:24.246623"
+  },
+  {
+    "user_id": "1",
+    "mood": "angry",
+    "source": "face",
+    "timestamp": "2025-12-05T21:26:24.278302"
+  },
+  {
+    "user_id": "1",
+    "mood": "angry",
+    "source": "face",
+    "timestamp": "2025-12-05T21:27:26.489773"
+  },
+  {
+    "user_id": "1",
+    "mood": "angry",
+    "source": "face",
+    "timestamp": "2025-12-05T21:28:28.641695"
+  },
+  {
+    "user_id": "1",
+    "mood": "angry",
+    "source": "face",
+    "timestamp": "2025-12-05T22:01:03.904653"
+  },
+  {
+    "user_id": "1",
+    "mood": "neutral",
+    "source": "face",
+    "timestamp": "2025-12-05T22:02:06.145776"
+  },
+  {
+    "user_id": "1",
+    "mood": "sleep",
+    "source": "face",
+    "timestamp": "2025-12-05T22:03:06.133584"
+  },
+  {
+    "user_id": "1",
+    "mood": "angry",
+    "source": "face",
+    "timestamp": "2025-12-05T22:04:08.347192"
+  },
+  {
+    "user_id": "1",
+    "mood": "angry",
+    "source": "face",
+    "timestamp": "2025-12-05T22:05:10.537030"
+  },
+  {
+    "user_id": "1",
+    "mood": "angry",
+    "source": "face",
+    "timestamp": "2025-12-05T22:06:12.741619"
+  },
+  {
+    "user_id": "1",
+    "mood": "angry",
+    "source": "face",
+    "timestamp": "2025-12-05T22:07:14.893297"
+  },
+  {
+    "user_id": "1",
+    "mood": "angry",
+    "source": "face",
+    "timestamp": "2025-12-05T22:08:16.243219"
+  },
+  {
+    "user_id": "1",
+    "mood": "angry",
+    "source": "face",
+    "timestamp": "2025-12-05T22:09:18.455556"
+  },
+  {
+    "user_id": "1",
+    "mood": "angry",
+    "source": "face",
+    "timestamp": "2025-12-05T22:10:20.613736"
+  },
+  {
+    "user_id": "1",
+    "mood": "angry",
+    "source": "face",
+    "timestamp": "2025-12-05T22:11:22.832123"
+  },
+  {
+    "user_id": "1",
+    "mood": "angry",
+    "source": "face",
+    "timestamp": "2025-12-05T22:12:25.025247"
   }
 ]
