@@ -1,6 +1,7 @@
 const { ipcRenderer } = require('electron');
 const petAnim = document.getElementById('pet-anim');
 const bubble = document.getElementById('bubble');
+let breakLoopTimer = null; // number of breat time
 
 let hideTimer = null;
 let isInteracting = false;
@@ -25,8 +26,8 @@ const petSounds = {
     poweroff: new Audio('./assets/sounds/popup.mp3'),
     poweron: new Audio('./assets/sounds/popup.mp3'),
     wifioff: new Audio('./assets/sounds/popup.mp3'),
-    wifion: new Audio('./assets/sounds/popup.mp3')
-    
+    wifion: new Audio('./assets/sounds/popup.mp3'),
+    break: new Audio('./assets/sounds/popup.mp3')
 };
 
 const uniqueAnimations = {
@@ -35,11 +36,11 @@ const uniqueAnimations = {
     sleepy: 'assets/sleep-1.json',
     happy: 'assets/happy-1.json',
     love: 'assets/love-1.json',
-    poweroff : 'assets/chargeoff.json',
-    poweron : 'assets/chargeon.json',
+    poweroff: 'assets/chargeoff.json',
+    poweron: 'assets/chargeon.json',
     wifioff: 'assets/wifioff.json',
-    wifion: 'assets/wifion.json'
-
+    wifion: 'assets/wifion.json',
+    break: 'assets/happy-2.json'
 };
 
 // --- Play Sound Function ---
@@ -134,6 +135,17 @@ const emotionData = {
             "Cloud sync active. ☁️", 
             "Update your apps. 📲"
         ] 
+    },
+    "break": { 
+        "icon": "☕", 
+        "pet_says": ["Time for a break!", "Rest your eyes!", "Stretch a bit!", "You deserve a pause!"],
+        "tips": [
+            "Look away from screen for 20 sec. 👀", 
+            "Stand up and stretch. 🙆", 
+            "Drink some water. 💧",
+            "Take a short walk. 🚶",
+            "Do some deep breaths. 🧘"
+        ] 
     }
 };
 
@@ -171,6 +183,85 @@ function playRandomFromAll() {
     petAnim.setSpeed(0.8);
     lastPlayedAnim = randomAnim;
     bubble.style.display = 'none';
+}
+
+// --- BREAK TIMER FUNCTION ---
+function updateBreakTimer(enabled, minutes) {
+    // remove old timer
+    if (breakLoopTimer) clearInterval(breakLoopTimer);
+
+    if (enabled && minutes > 0) {
+        console.log(`⏰ Break Timer Started: Reminding every ${minutes} minutes.`);
+        
+        // ms
+        const intervalMs = minutes * 60 * 1000;
+
+        breakLoopTimer = setInterval(() => {
+            // Maut karanna
+            triggerBreakAlert();
+        }, intervalMs);
+    } else {
+        console.log("⏰ Break Timer Stopped.");
+    }
+}
+
+// do when come time
+function triggerBreakAlert() {
+    // Reset idle timer and clear any existing timers
+    resetIdleTimer();
+    if (hideTimer) clearTimeout(hideTimer);
+    if (messageSequenceTimer) clearTimeout(messageSequenceTimer);
+    
+    // 1. Play sound
+    playEmotionSound('break');
+    
+    // 2. Play break animation
+    if (uniqueAnimations['break']) {
+        playSpecificAnimation(uniqueAnimations['break']);
+    } else {
+        playRandomFromAll();
+    }
+
+    // 3. Show bubble with break data (same format as other emotions)
+    const eData = emotionData['break'];
+    if (eData) {
+        const randomSay = eData.pet_says[Math.floor(Math.random() * eData.pet_says.length)];
+        const randomTip = eData.tips[Math.floor(Math.random() * eData.tips.length)];
+
+        // STEP 1: "Pet Says"
+        bubble.innerHTML = `
+            <div class="emoji-icon">${eData.icon}</div>
+            <div style="font-weight:600; color:#e67e22;">${randomSay}</div>
+        `;
+        bubble.style.display = 'block';
+
+        // STEP 2: Show tip after 4 seconds
+        messageSequenceTimer = setTimeout(() => {
+            bubble.innerHTML = `
+                <div class="tip-badge">💡 Quick Tip</div>
+                <div style="font-weight:500;">${randomTip}</div>
+            `;
+        }, 4000);
+
+        // STEP 3: Hide bubble after 8 seconds
+        hideTimer = setTimeout(() => {
+            bubble.style.display = 'none';
+            console.log("☕ Break reminder bubble hidden");
+        }, 8000);
+    } else {
+        // Fallback if no data
+        bubble.innerHTML = `
+            <div class="emoji-icon">☕</div>
+            <div style="font-weight:bold; color:#e67e22;">Time for a Break!</div>
+            <div style="font-size:12px; margin-top:5px;">Rest your eyes for a bit. 👀</div>
+        `;
+        bubble.style.display = 'block';
+        setTimeout(() => {
+            bubble.style.display = 'none';
+        }, 8000);
+    }
+    
+    console.log("☕ Break reminder triggered!");
 }
 
 
@@ -283,5 +374,10 @@ ipcRenderer.on('apply-setting', (event, data) => {
         isSoundEnabled = data.value;
         localStorage.setItem('petSound', data.value); // Remember the setting
         console.log(`🔊 Sound setting updated: ${isSoundEnabled}`);
+    }
+    if (data.type === 'break') {
+        // data.enabled = True/False
+        // data.interval = munit
+        updateBreakTimer(data.enabled, data.interval);
     }
 });
